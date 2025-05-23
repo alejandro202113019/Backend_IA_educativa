@@ -1,6 +1,6 @@
-# app/models/schemas.py
-from pydantic import BaseModel, Field, validator
-from typing import List, Optional, Dict, Any
+# app/models/schemas.py CORREGIDO
+from pydantic import BaseModel, Field
+from typing import List, Optional
 from datetime import datetime
 
 class TextInput(BaseModel):
@@ -9,12 +9,12 @@ class TextInput(BaseModel):
 
 class SummaryRequest(BaseModel):
     text: str = Field(..., min_length=10, description="Texto para generar resumen")
-    length: Optional[str] = Field("medium", regex="^(short|medium|long)$", description="Longitud del resumen")
+    length: Optional[str] = Field("medium", pattern="^(short|medium|long)$", description="Longitud del resumen")  # ← CAMBIO
 
 class QuizRequest(BaseModel):
     text: str = Field(..., min_length=10, description="Texto base para generar quiz")
     num_questions: Optional[int] = Field(5, ge=3, le=15, description="Número de preguntas")
-    difficulty: Optional[str] = Field("medium", regex="^(easy|medium|hard)$", description="Dificultad del quiz")
+    difficulty: Optional[str] = Field("medium", pattern="^(easy|medium|hard)$", description="Dificultad del quiz")  # ← CAMBIO
 
 class QuizAnswer(BaseModel):
     question_id: int

@@ -1,4 +1,4 @@
-# app/utils/helpers.py
+# app/utils/helpers.py CORREGIDO
 import os
 import uuid
 import aiofiles
@@ -31,13 +31,12 @@ def validate_file_upload(file: UploadFile) -> bool:
     """
     # Verificar extensión
     file_extension = os.path.splitext(file.filename)[1].lower().lstrip('.')
-    if file_extension not in settings.get_allowed_extensions():
+    if file_extension not in settings.get_allowed_extensions():  # ← USAR MÉTODO
         raise HTTPException(
             status_code=400,
-            detail=f"Tipo de archivo no permitido. Extensiones permitidas: {', '.join(settings.ALLOWED_EXTENSIONS)}"
+            detail=f"Tipo de archivo no permitido. Extensiones permitidas: {', '.join(settings.get_allowed_extensions())}"  # ← USAR MÉTODO
         )
     
-    # Verificar tamaño (esto se puede hacer en el endpoint también)
     return True
 
 def clean_text(text: str) -> str:

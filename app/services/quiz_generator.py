@@ -1,8 +1,7 @@
-
-# app/services/quiz_generator.py
+# app/services/quiz_generator.py CORREGIDO
 import uuid
 import json
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional  # ← AGREGAR Optional
 from datetime import datetime, timedelta
 from app.models.response_models import QuizQuestion, QuizResult
 

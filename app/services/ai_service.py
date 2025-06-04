@@ -1,6 +1,7 @@
-# app/services/ai_service.py - VERSIÓN CON MODELOS GRATUITOS
+# app/services/ai_service.py - VERSIÓN MEJORADA PARA QUIZ
 import json
 import logging
+import random
 from typing import Dict, Any, List, Optional
 from transformers import (
     AutoTokenizer, AutoModelForSeq2SeqLM, 
@@ -127,15 +128,21 @@ class AIService:
     
     async def generate_quiz(self, text: str, key_concepts: List[str], num_questions: int = 5, difficulty: str = "medium") -> Dict[str, Any]:
         """
-        Genera un quiz usando T5
+        Genera un quiz mejorado basado en conceptos clave
         """
         try:
             questions = []
             
+            # ✅ GENERAR PREGUNTAS BASADAS EN CONCEPTOS REALES
             for i in range(num_questions):
-                question_data = await self._generate_single_question(text, key_concepts, i+1, difficulty)
+                question_data = await self._generate_improved_question(text, key_concepts, i+1, difficulty)
                 if question_data:
                     questions.append(question_data)
+            
+            # ✅ SI NO HAY SUFICIENTES PREGUNTAS, USAR FALLBACK
+            while len(questions) < num_questions:
+                fallback_question = self._create_fallback_question(len(questions) + 1, key_concepts, difficulty)
+                questions.append(fallback_question)
             
             return {
                 "questions": questions,
@@ -150,130 +157,175 @@ class AIService:
                 "error": str(e)
             }
     
-    async def _generate_single_question(self, text: str, concepts: List[str], question_num: int, difficulty: str) -> Optional[Dict]:
-        """Genera una pregunta individual usando T5"""
+    async def _generate_improved_question(self, text: str, concepts: List[str], question_num: int, difficulty: str) -> Optional[Dict]:
+        """Genera una pregunta mejorada usando conceptos clave"""
         try:
-            # Tomar una sección del texto para la pregunta
-            sentences = text.split('.')
-            if len(sentences) > question_num:
-                context = '. '.join(sentences[question_num-1:question_num+1])
+            # ✅ SELECCIONAR CONCEPTO PARA LA PREGUNTA
+            if concepts and len(concepts) > 0:
+                concept_index = (question_num - 1) % len(concepts)
+                main_concept = concepts[concept_index]
             else:
-                context = text[:200]  # Primeros 200 caracteres
+                main_concept = "inteligencia artificial"
             
-            # Prompt para T5
-            prompt = f"Genera una pregunta de opción múltiple sobre: {context}"
+            # ✅ ENCONTRAR CONTEXTO RELEVANTE EN EL TEXTO
+            sentences = text.split('.')
+            relevant_sentence = ""
             
-            # Tokenizar y generar
-            inputs = self.t5_tokenizer.encode(prompt, return_tensors="pt", max_length=512, truncation=True).to(self.device)
+            for sentence in sentences:
+                if main_concept.lower() in sentence.lower():
+                    relevant_sentence = sentence.strip()
+                    break
             
-            with torch.no_grad():
-                outputs = self.t5_model.generate(
-                    inputs, 
-                    max_length=200, 
-                    num_return_sequences=1,
-                    temperature=0.7,
-                    do_sample=True
+            if not relevant_sentence and sentences:
+                relevant_sentence = sentences[min(question_num-1, len(sentences)-1)].strip()
+            
+            # ✅ GENERAR PREGUNTA ESTRUCTURADA
+            if len(relevant_sentence) > 10:
+                return self._create_structured_question(
+                    main_concept, 
+                    relevant_sentence, 
+                    question_num, 
+                    difficulty,
+                    concepts
                 )
-            
-            generated_text = self.t5_tokenizer.decode(outputs[0], skip_special_tokens=True)
-            
-            # Crear estructura de pregunta
-            question_data = self._parse_generated_question(generated_text, question_num, difficulty, context, concepts)
-            
-            return question_data
-            
+            else:
+                return self._create_fallback_question(question_num, concepts, difficulty)
+                
         except Exception as e:
             logger.error(f"Error generando pregunta {question_num}: {e}")
             return self._create_fallback_question(question_num, concepts, difficulty)
     
-    def _parse_generated_question(self, generated_text: str, question_id: int, difficulty: str, context: str, concepts: List[str]) -> Dict:
-        """Parsea la respuesta generada y crea una pregunta estructurada"""
-        # Si la generación no es buena, crear pregunta basada en conceptos
-        if len(generated_text) < 10:
-            return self._create_fallback_question(question_id, concepts, difficulty)
+    def _create_structured_question(self, main_concept: str, context: str, question_id: int, difficulty: str, all_concepts: List[str]) -> Dict:
+        """Crea una pregunta estructurada de alta calidad"""
         
-        # Usar el texto generado como base para la pregunta
-        question_text = f"Según el contenido analizado, {generated_text}"
+        # ✅ TIPOS DE PREGUNTAS VARIADAS
+        question_types = [
+            "¿Qué es {concept}?",
+            "¿Cuál es la principal característica de {concept}?", 
+            "¿Cómo se relaciona {concept} con el contenido analizado?",
+            "Según el texto, ¿qué papel juega {concept}?",
+            "¿Cuál es la importancia de {concept} en este contexto?"
+        ]
         
-        # Crear opciones basadas en conceptos
-        if concepts and len(concepts) >= 1:
-            correct_concept = concepts[0] if concepts else "concepto clave"
-            options = [
-                correct_concept,
-                "Información incorrecta A",
-                "Información incorrecta B", 
-                "Información incorrecta C"
-            ]
-            
-            # Mezclar opciones
-            import random
-            correct_index = random.randint(0, 3)
-            options[0], options[correct_index] = options[correct_index], options[0]
-            
-            return {
-                "id": question_id,
-                "question": question_text,
-                "options": options,
-                "correct_answer": correct_index,
-                "explanation": f"La respuesta correcta se relaciona con {correct_concept} mencionado en el texto.",
-                "difficulty": difficulty
-            }
+        question_template = question_types[(question_id - 1) % len(question_types)]
+        question_text = question_template.format(concept=main_concept)
         
-        return self._create_fallback_question(question_id, concepts, difficulty)
-    
-    def _create_fallback_question(self, question_id: int, concepts: List[str], difficulty: str) -> Dict:
-        """Crea una pregunta de respaldo"""
-        if concepts and len(concepts) > 0:
-            concept = concepts[min(question_id-1, len(concepts)-1)]
-        else:
-            concept = "el contenido analizado"
+        # ✅ CREAR OPCIONES REALISTAS
+        correct_answer = main_concept.title()
+        
+        # Generar opciones incorrectas basadas en otros conceptos
+        incorrect_options = []
+        
+        # Usar otros conceptos como distractores
+        for concept in all_concepts:
+            if concept.lower() != main_concept.lower() and len(incorrect_options) < 2:
+                incorrect_options.append(concept.title())
+        
+        # Completar con opciones genéricas si no hay suficientes conceptos
+        generic_options = [
+            "Análisis de datos básico",
+            "Procesamiento manual de información", 
+            "Sistema tradicional de cómputo",
+            "Método convencional de análisis",
+            "Técnica estadística clásica"
+        ]
+        
+        while len(incorrect_options) < 3:
+            for option in generic_options:
+                if option not in incorrect_options and len(incorrect_options) < 3:
+                    incorrect_options.append(option)
+        
+        # Crear lista final de opciones
+        all_options = [correct_answer] + incorrect_options[:3]
+        
+        # Mezclar opciones
+        random.shuffle(all_options)
+        correct_index = all_options.index(correct_answer)
+        
+        # ✅ EXPLICACIÓN EDUCATIVA
+        explanation = f"La respuesta correcta es '{correct_answer}' porque es un concepto clave mencionado en el texto que se relaciona directamente con el tema analizado."
         
         return {
             "id": question_id,
-            "question": f"¿Cuál es el concepto principal relacionado con {concept}?",
-            "options": [
-                concept if concepts else "Concepto principal",
-                "Opción incorrecta 1",
-                "Opción incorrecta 2",
-                "Opción incorrecta 3"
-            ],
-            "correct_answer": 0,
-            "explanation": f"La respuesta correcta es {concept} ya que es uno de los conceptos centrales del texto analizado.",
+            "question": question_text,
+            "options": all_options,
+            "correct_answer": correct_index,
+            "explanation": explanation,
+            "difficulty": difficulty
+        }
+    
+    def _create_fallback_question(self, question_id: int, concepts: List[str], difficulty: str) -> Dict:
+        """Crea una pregunta de respaldo de alta calidad"""
+        
+        if concepts and len(concepts) > 0:
+            concept_index = (question_id - 1) % len(concepts)
+            main_concept = concepts[concept_index]
+        else:
+            main_concept = "el contenido analizado"
+        
+        # ✅ PREGUNTAS FALLBACK VARIADAS Y EDUCATIVAS
+        fallback_questions = [
+            f"¿Cuál es el concepto principal relacionado con {main_concept}?",
+            f"Según el análisis, ¿qué caracteriza a {main_concept}?",
+            f"¿Cuál es la importancia de {main_concept} en el contexto estudiado?",
+            f"¿Cómo se puede definir {main_concept} según el contenido?",
+            f"¿Qué función cumple {main_concept} en el tema analizado?"
+        ]
+        
+        question_text = fallback_questions[(question_id - 1) % len(fallback_questions)]
+        
+        # ✅ OPCIONES REALISTAS BASADAS EN CONCEPTOS
+        if concepts and len(concepts) >= 4:
+            options = concepts[:4]
+            correct_answer = 0  # El primer concepto es correcto
+        else:
+            correct_option = main_concept if main_concept != "el contenido analizado" else "Inteligencia Artificial"
+            options = [
+                correct_option,
+                "Procesamiento básico de datos",
+                "Análisis estadístico tradicional", 
+                "Sistema de información convencional"
+            ]
+            correct_answer = 0
+        
+        explanation = f"La respuesta correcta se relaciona con {options[correct_answer]} ya que es uno de los conceptos centrales del texto analizado."
+        
+        return {
+            "id": question_id,
+            "question": question_text,
+            "options": options,
+            "correct_answer": correct_answer,
+            "explanation": explanation,
             "difficulty": difficulty
         }
     
     async def generate_feedback(self, score: int, total: int, incorrect_questions: List[int], concepts: List[str]) -> str:
         """
-        Genera retroalimentación pedagógica usando T5
+        Genera retroalimentación pedagógica mejorada
         """
         try:
             percentage = (score / total) * 100
             
-            # Crear prompt para retroalimentación
-            prompt = f"Genera retroalimentación educativa para un estudiante que obtuvo {score} de {total} preguntas correctas ({percentage:.1f}%). Conceptos: {', '.join(concepts[:3])}"
-            
-            inputs = self.t5_tokenizer.encode(prompt, return_tensors="pt", max_length=256, truncation=True).to(self.device)
-            
-            with torch.no_grad():
-                outputs = self.t5_model.generate(
-                    inputs,
-                    max_length=150,
-                    num_return_sequences=1,
-                    temperature=0.7,
-                    do_sample=True
-                )
-            
-            feedback = self.t5_tokenizer.decode(outputs[0], skip_special_tokens=True)
-            
-            # Agregar contexto adicional
+            # ✅ FEEDBACK ESTRUCTURADO BASADO EN RENDIMIENTO
             if percentage >= 80:
-                feedback = f"¡Excelente trabajo! {feedback} Continúa así."
+                base_feedback = f"¡Excelente trabajo! Has demostrado un sólido dominio de los conceptos clave"
+                if concepts:
+                    base_feedback += f" relacionados con {', '.join(concepts[:2])}"
+                base_feedback += f". Tu puntuación de {score}/{total} ({percentage:.1f}%) indica que tienes una comprensión muy buena del tema."
+                
             elif percentage >= 60:
-                feedback = f"Buen esfuerzo. {feedback} Sigue practicando."
+                base_feedback = f"Buen trabajo. Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%)"
+                if concepts:
+                    base_feedback += f". Tienes una base sólida en {concepts[0] if concepts else 'los conceptos principales'}"
+                base_feedback += ", pero hay algunas áreas que puedes reforzar para mejorar tu comprensión."
+                
             else:
-                feedback = f"Te recomiendo repasar el material. {feedback} ¡No te rindas!"
+                base_feedback = f"Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%)"
+                if concepts:
+                    base_feedback += f". Te recomiendo revisar los conceptos fundamentales como {', '.join(concepts[:2]) if len(concepts) >= 2 else concepts[0] if concepts else 'los temas principales'}"
+                base_feedback += ". No te desanimes, el aprendizaje es un proceso gradual y cada intento te acerca más al dominio del tema."
             
-            return feedback
+            return base_feedback
             
         except Exception as e:
             logger.error(f"Error generando feedback: {e}")
@@ -285,26 +337,19 @@ class AIService:
         return f"📚 Resumen básico: {'. '.join(sentences)}."
     
     def _generate_fallback_quiz(self, text: str, concepts: List[str], num_questions: int) -> List[Dict]:
-        """Genera preguntas básicas sin IA"""
+        """Genera preguntas básicas de alta calidad"""
         questions = []
-        for i in range(min(num_questions, max(3, len(concepts)))):
-            concept = concepts[i] if i < len(concepts) else f"Concepto {i+1}"
-            questions.append({
-                "id": i + 1,
-                "question": f"¿Cuál es el concepto clave relacionado con {concept}?",
-                "options": [concept, "Opción B", "Opción C", "Opción D"],
-                "correct_answer": 0,
-                "explanation": f"La respuesta correcta es {concept} según el texto analizado.",
-                "difficulty": "medium"
-            })
+        for i in range(min(num_questions, max(3, len(concepts) if concepts else 3))):
+            question = self._create_fallback_question(i + 1, concepts, "medium")
+            questions.append(question)
         return questions
     
     def _generate_fallback_feedback(self, score: int, total: int) -> str:
-        """Genera feedback básico sin IA"""
+        """Genera feedback básico pero útil"""
         percentage = (score / total) * 100
         if percentage >= 80:
-            return f"¡Excelente trabajo! Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%). Dominas bien el tema."
+            return f"¡Excelente trabajo! Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%). Demuestras un sólido dominio del tema."
         elif percentage >= 60:
-            return f"Buen trabajo. Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%). Continúa estudiando para mejorar."
+            return f"Buen trabajo. Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%). Tienes una base sólida, continúa practicando para mejorar."
         else:
-            return f"Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%). Te recomiendo revisar el material de estudio nuevamente."
+            return f"Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%). Te recomiendo revisar el material de estudio y enfocarte en los conceptos principales. ¡El aprendizaje es un proceso, sigue adelante!"

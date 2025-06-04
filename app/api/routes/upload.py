@@ -1,4 +1,4 @@
-# app/api/routes/upload.py
+# app/api/routes/upload.py - CORREGIDO
 import os
 import logging
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
@@ -8,16 +8,15 @@ from typing import Optional
 from app.models.schemas import TextInput
 from app.models.response_models import APIResponse
 from app.services.pdf_processor import PDFProcessor
-from app.services.nlp_service import NLPService
+from app.services.service_manager import service_manager  # ← CAMBIO
 from app.utils.helpers import save_uploaded_file, validate_file_upload, clean_text
 from app.core.config import settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Instanciar servicios
+# Instanciar solo el processor (no los servicios de IA)
 pdf_processor = PDFProcessor()
-nlp_service = NLPService()
 
 @router.post("/upload-file", response_model=APIResponse)
 async def upload_file(
@@ -71,6 +70,9 @@ async def upload_file(
                 detail="El archivo no contiene suficiente texto para procesar"
             )
         
+        # ✅ USAR SERVICE_MANAGER (instancia singleton)
+        nlp_service = service_manager.nlp_service
+        
         # Extraer conceptos clave
         key_concepts = nlp_service.extract_key_concepts(clean_content)
         text_analysis = nlp_service.analyze_text_complexity(clean_content)
@@ -113,6 +115,9 @@ async def upload_text(text_input: TextInput):
     try:
         # Limpiar texto
         clean_content = clean_text(text_input.content)
+        
+        # ✅ USAR SERVICE_MANAGER (instancia singleton)
+        nlp_service = service_manager.nlp_service
         
         # Extraer conceptos clave
         key_concepts = nlp_service.extract_key_concepts(clean_content)

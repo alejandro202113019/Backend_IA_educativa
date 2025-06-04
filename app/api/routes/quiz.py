@@ -1,4 +1,4 @@
-# app/api/routes/quiz.py
+# app/api/routes/quiz.py - CORREGIDO
 import logging
 from fastapi import APIRouter, HTTPException
 from typing import List
@@ -6,17 +6,10 @@ from datetime import datetime
 
 from app.models.schemas import QuizRequest, QuizSubmission
 from app.models.response_models import APIResponse, QuizResponse, QuizQuestion, QuizResult
-from app.services.ai_service import AIService
-from app.services.nlp_service import NLPService
-from app.services.quiz_generator import QuizManager
+from app.services.service_manager import service_manager  # ← CAMBIO
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-# Instanciar servicios
-ai_service = AIService()
-nlp_service = NLPService()
-quiz_manager = QuizManager()
 
 @router.post("/generate-quiz", response_model=APIResponse)
 async def generate_quiz(request: QuizRequest):
@@ -24,6 +17,11 @@ async def generate_quiz(request: QuizRequest):
     Genera un quiz educativo basado en el texto
     """
     try:
+        # ✅ USAR SERVICE_MANAGER (instancias singleton)
+        ai_service = service_manager.ai_service
+        nlp_service = service_manager.nlp_service
+        quiz_manager = service_manager.quiz_manager
+        
         # Extraer conceptos clave del texto
         key_concepts = nlp_service.extract_key_concepts(request.text, max_concepts=10)
         concept_names = [concept["concept"] for concept in key_concepts]
@@ -89,6 +87,10 @@ async def submit_quiz(submission: QuizSubmission):
     Procesa las respuestas del quiz y genera retroalimentación
     """
     try:
+        # ✅ USAR SERVICE_MANAGER (instancias singleton)
+        ai_service = service_manager.ai_service
+        quiz_manager = service_manager.quiz_manager
+        
         # Convertir respuestas al formato esperado
         answers = [
             {
@@ -115,15 +117,19 @@ async def submit_quiz(submission: QuizSubmission):
         incorrect_questions = []
         
         for i, answer in enumerate(answers):
-            question = questions[answer["question_id"] - 1]
-            # Extraer conceptos principales de cada pregunta
-            question_text = question["question"]
-            words = question_text.split()
-            concepts.extend([word for word in words if len(word) > 4])
+            question_id = answer["question_id"]
+            selected = answer["selected_answer"]
             
-            # Identificar preguntas incorrectas
-            if answer["selected_answer"] != question["correct_answer"]:
-                incorrect_questions.append(answer["question_id"])
+            if question_id <= len(questions):
+                question = questions[question_id - 1]
+                # Extraer conceptos principales de cada pregunta
+                question_text = question["question"]
+                words = question_text.split()
+                concepts.extend([word for word in words if len(word) > 4])
+                
+                # Identificar preguntas incorrectas
+                if selected != question["correct_answer"]:
+                    incorrect_questions.append(question_id)
         
         # Generar feedback personalizado con IA
         try:
@@ -159,6 +165,9 @@ async def get_quiz_session(session_id: str):
     Obtiene información de una sesión de quiz
     """
     try:
+        # ✅ USAR SERVICE_MANAGER (instancia singleton)
+        quiz_manager = service_manager.quiz_manager
+        
         session = quiz_manager.get_session(session_id)
         
         if not session:

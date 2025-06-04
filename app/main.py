@@ -1,4 +1,4 @@
-# app/main.py - ACTUALIZADO
+# app/main.py - CORREGIDO CON SINGLETON
 import logging
 import uvicorn
 from datetime import datetime
@@ -32,15 +32,22 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.TEMP_FOLDER, exist_ok=True)
     os.makedirs(settings.AI_MODEL_CACHE_DIR, exist_ok=True)
     
-    # YA NO VERIFICAMOS OPENAI_API_KEY
-    # Verificar que los modelos se puedan cargar
+    # ✅ PRE-CARGAR SERVICIOS USANDO SINGLETON
     try:
-        from app.services.ai_service import AIService
-        ai_service = AIService()
-        logger.info("✅ Modelos de IA cargados correctamente")
+        logger.info("🚀 Pre-cargando servicios de IA (esto puede tomar unos segundos)...")
+        from app.services.service_manager import service_manager
+        
+        # Esto carga todos los modelos UNA SOLA VEZ
+        service_manager.preload_all_services()
+        
+        # Verificar estado
+        status = service_manager.get_status()
+        logger.info(f"✅ Estado de servicios: {status}")
+        logger.info("🎯 Todos los modelos de IA están listos para usar")
+        
     except Exception as e:
-        logger.warning(f"⚠️ Error cargando modelos de IA: {e}")
-        logger.info("La aplicación funcionará con capacidades limitadas")
+        logger.warning(f"⚠️ Error pre-cargando servicios: {e}")
+        logger.info("La aplicación funcionará pero cargará modelos bajo demanda")
     
     yield
     
@@ -51,7 +58,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="API para procesamiento de contenido educativo con IA gratuita (BART, T5, Stable Diffusion)",
+    description="API para procesamiento de contenido educativo con IA gratuita (BART, T5, RoBERTa)",
     lifespan=lifespan
 )
 
@@ -113,14 +120,22 @@ async def root():
     """
     Endpoint raíz - información de la API
     """
+    # Obtener estado de servicios
+    try:
+        from app.services.service_manager import service_manager
+        status = service_manager.get_status()
+    except:
+        status = {"error": "ServiceManager no disponible"}
+    
     return APIResponse(
         success=True,
         message="IA Educativa Backend API con modelos gratuitos está funcionando",
         data={
             "version": settings.VERSION,
             "environment": settings.ENVIRONMENT,
-            "ai_models": "BART (resúmenes), T5 (quiz), Transformers (análisis)",
+            "ai_models": "BART (resúmenes), T5 (quiz), RoBERTa (análisis)",
             "gpu_available": "cuda" if settings.AI_USE_GPU else "cpu",
+            "service_status": status,
             "endpoints": {
                 "upload": f"{settings.API_V1_STR}/upload",
                 "summary": f"{settings.API_V1_STR}/summary", 
@@ -141,15 +156,23 @@ async def health_check():
     except:
         gpu_status = "no detectada"
     
+    # Estado de servicios singleton
+    try:
+        from app.services.service_manager import service_manager
+        service_status = service_manager.get_status()
+    except:
+        service_status = {"error": "ServiceManager no inicializado"}
+    
     return APIResponse(
         success=True,
-        message="Sistema saludable - Modelos gratuitos funcionando",
+        message="Sistema saludable - Servicios singleton activos",
         data={
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
             "environment": settings.ENVIRONMENT,
             "gpu": gpu_status,
-            "models": "BART + T5 + Transformers"
+            "models": "BART + T5 + RoBERTa (singleton)",
+            "services": service_status
         }
     )
 

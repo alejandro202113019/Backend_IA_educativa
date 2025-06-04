@@ -1,21 +1,16 @@
-# app/api/routes/summary.py CORREGIDO (agregar import faltante)
+# app/api/routes/summary.py - CORREGIDO
 import logging
-from datetime import datetime  # ← AGREGAR ESTA LÍNEA
+from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from typing import List
 
 from app.models.schemas import SummaryRequest
 from app.models.response_models import APIResponse, SummaryResponse, VisualizationResponse, ChartData
-from app.services.ai_service import AIService
-from app.services.nlp_service import NLPService
+from app.services.service_manager import service_manager  # ← CAMBIO
 from app.utils.helpers import estimate_reading_time
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-# Instanciar servicios
-ai_service = AIService()
-nlp_service = NLPService()
 
 @router.post("/generate-summary", response_model=APIResponse)
 async def generate_summary(request: SummaryRequest):
@@ -23,6 +18,10 @@ async def generate_summary(request: SummaryRequest):
     Genera un resumen educativo del texto
     """
     try:
+        # ✅ USAR SERVICE_MANAGER (instancias singleton)
+        ai_service = service_manager.ai_service
+        nlp_service = service_manager.nlp_service
+        
         # Generar resumen con IA
         summary_result = await ai_service.generate_summary(request.text, request.length)
         
@@ -67,6 +66,9 @@ async def generate_visualization(request: SummaryRequest):
     Genera visualizaciones de los conceptos del texto
     """
     try:
+        # ✅ USAR SERVICE_MANAGER (instancia singleton)
+        nlp_service = service_manager.nlp_service
+        
         # Extraer conceptos clave
         key_concepts = nlp_service.extract_key_concepts(request.text, max_concepts=10)
         

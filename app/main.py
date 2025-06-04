@@ -1,4 +1,4 @@
-# app/main.py
+# app/main.py - ACTUALIZADO
 import logging
 import uvicorn
 from datetime import datetime
@@ -24,16 +24,23 @@ async def lifespan(app: FastAPI):
     Gestión del ciclo de vida de la aplicación
     """
     # Startup
-    logger.info("Iniciando aplicación IA Educativa Backend")
+    logger.info("Iniciando aplicación IA Educativa Backend con modelos gratuitos")
     
     # Crear directorios necesarios
     import os
     os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(settings.TEMP_FOLDER, exist_ok=True)
+    os.makedirs(settings.AI_MODEL_CACHE_DIR, exist_ok=True)
     
-    # Verificar configuración crítica
-    if not settings.OPENAI_API_KEY and settings.ENVIRONMENT == "production":
-        logger.warning("OpenAI API key no configurada - funcionalidad limitada")
+    # YA NO VERIFICAMOS OPENAI_API_KEY
+    # Verificar que los modelos se puedan cargar
+    try:
+        from app.services.ai_service import AIService
+        ai_service = AIService()
+        logger.info("✅ Modelos de IA cargados correctamente")
+    except Exception as e:
+        logger.warning(f"⚠️ Error cargando modelos de IA: {e}")
+        logger.info("La aplicación funcionará con capacidades limitadas")
     
     yield
     
@@ -44,14 +51,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="API para procesamiento de contenido educativo con IA generativa",
+    description="API para procesamiento de contenido educativo con IA gratuita (BART, T5, Stable Diffusion)",
     lifespan=lifespan
 )
 
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000"],  # Frontend URLs
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -108,10 +115,12 @@ async def root():
     """
     return APIResponse(
         success=True,
-        message="IA Educativa Backend API está funcionando",
+        message="IA Educativa Backend API con modelos gratuitos está funcionando",
         data={
             "version": settings.VERSION,
             "environment": settings.ENVIRONMENT,
+            "ai_models": "BART (resúmenes), T5 (quiz), Transformers (análisis)",
+            "gpu_available": "cuda" if settings.AI_USE_GPU else "cpu",
             "endpoints": {
                 "upload": f"{settings.API_V1_STR}/upload",
                 "summary": f"{settings.API_V1_STR}/summary", 
@@ -125,13 +134,22 @@ async def health_check():
     """
     Endpoint de salud del sistema
     """
+    # Verificar estado de los modelos
+    try:
+        import torch
+        gpu_status = "disponible" if torch.cuda.is_available() else "no disponible"
+    except:
+        gpu_status = "no detectada"
+    
     return APIResponse(
         success=True,
-        message="Sistema saludable",
+        message="Sistema saludable - Modelos gratuitos funcionando",
         data={
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
-            "environment": settings.ENVIRONMENT
+            "environment": settings.ENVIRONMENT,
+            "gpu": gpu_status,
+            "models": "BART + T5 + Transformers"
         }
     )
 

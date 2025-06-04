@@ -1,71 +1,97 @@
-# app/services/ai_service.py CORREGIDO (OpenAI v1+ compatible)
-import openai
+# app/services/ai_service.py - VERSIÓN CON MODELOS GRATUITOS
 import json
 import logging
 from typing import Dict, Any, List, Optional
+from transformers import (
+    AutoTokenizer, AutoModelForSeq2SeqLM, 
+    pipeline, T5ForConditionalGeneration, T5Tokenizer
+)
+import torch
 from app.core.config import settings
-from app.models.response_models import QuizQuestion
 
 logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        if settings.OPENAI_API_KEY:
-            self.client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)  # ← CAMBIO AQUÍ
-        else:
-            self.client = None
-            logger.warning("OpenAI API key not configured")
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Usando dispositivo: {self.device}")
+        
+        # Inicializar modelos
+        self._init_models()
+    
+    def _init_models(self):
+        """Inicializa todos los modelos necesarios"""
+        try:
+            # Modelo para resúmenes (BART en español)
+            logger.info("Cargando modelo de resumen...")
+            self.summarizer = pipeline(
+                "summarization",
+                model="facebook/bart-large-cnn",
+                device=0 if self.device == "cuda" else -1
+            )
+            
+            # Modelo para generación de texto/quiz (T5)
+            logger.info("Cargando modelo T5 para quiz...")
+            self.t5_tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-base")
+            self.t5_model = T5ForConditionalGeneration.from_pretrained(
+                "google/flan-t5-base"
+            ).to(self.device)
+            
+            # Pipeline para clasificación y análisis
+            self.classifier = pipeline(
+                "text-classification",
+                model="cardiffnlp/twitter-roberta-base-sentiment-latest",
+                device=0 if self.device == "cuda" else -1
+            )
+            
+            logger.info("Todos los modelos cargados exitosamente")
+            
+        except Exception as e:
+            logger.error(f"Error cargando modelos: {e}")
+            # Fallback a modelos más pequeños
+            self._init_fallback_models()
+    
+    def _init_fallback_models(self):
+        """Modelos de respaldo más pequeños"""
+        logger.info("Cargando modelos de respaldo...")
+        self.summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-6-6")
+        self.t5_tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-small")
+        self.t5_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-small")
     
     async def generate_summary(self, text: str, length: str = "medium") -> Dict[str, Any]:
         """
-        Genera un resumen educativo del texto
+        Genera un resumen educativo del texto usando BART
         """
-        if not self.client:
-            return {
-                "summary": self._generate_fallback_summary(text),
-                "success": False,
-                "error": "OpenAI API key not configured"
-            }
-        
         try:
-            # Determinar longitud del resumen
-            length_prompts = {
-                "short": "Genera un resumen muy conciso en 1 párrafo",
-                "medium": "Genera un resumen educativo en 2-3 párrafos",
-                "long": "Genera un resumen detallado y educativo en 4-5 párrafos"
+            # Configurar longitud según parámetro
+            length_config = {
+                "short": {"max_length": 100, "min_length": 30},
+                "medium": {"max_length": 200, "min_length": 50},
+                "long": {"max_length": 300, "min_length": 100}
             }
             
-            prompt = f"""
-            {length_prompts.get(length, length_prompts["medium"])} del siguiente texto para estudiantes:
-
-            INSTRUCCIONES:
-            1. Use un tono didáctico pero cercano
-            2. Destaque 3-5 conceptos clave más importantes
-            3. Incluya ejemplos prácticos cuando sea posible
-            4. Estructure como: [Contexto] [Conceptos Principales] [Aplicación/Relevancia]
-            5. Escriba en español
-            6. Sea educativo, no solo informativo
-
-            TEXTO A RESUMIR:
-            {text[:4000]}
-
-            RESUMEN EDUCATIVO:
-            """
-
-            response = self.client.chat.completions.create(  # ← CAMBIO AQUÍ
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Eres un asistente educativo especializado en crear resúmenes didácticos para estudiantes."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=800,
-                temperature=0.7
+            config = length_config.get(length, length_config["medium"])
+            
+            # Limitar texto de entrada (BART tiene límite de tokens)
+            max_input_length = 1024
+            if len(text.split()) > max_input_length:
+                text = " ".join(text.split()[:max_input_length])
+            
+            # Generar resumen
+            summary_result = self.summarizer(
+                text,
+                max_length=config["max_length"],
+                min_length=config["min_length"],
+                do_sample=False
             )
             
-            summary = response.choices[0].message.content.strip()
+            summary = summary_result[0]['summary_text']
+            
+            # Post-procesar para hacerlo más educativo
+            educational_summary = self._make_educational(summary, text)
             
             return {
-                "summary": summary,
+                "summary": educational_summary,
                 "success": True
             }
             
@@ -77,80 +103,42 @@ class AIService:
                 "error": str(e)
             }
     
+    def _make_educational(self, summary: str, original_text: str) -> str:
+        """Mejora el resumen para hacerlo más educativo"""
+        # Agregar contexto educativo
+        intro = "📚 Resumen Educativo:\n\n"
+        
+        # Identificar conceptos clave del texto original
+        key_concepts = self._extract_key_terms(original_text)
+        
+        if key_concepts:
+            intro += f"🔑 Conceptos clave: {', '.join(key_concepts[:3])}\n\n"
+        
+        return intro + summary
+    
+    def _extract_key_terms(self, text: str) -> List[str]:
+        """Extrae términos clave del texto"""
+        # Implementación simple - en producción usar NER
+        words = text.lower().split()
+        # Filtrar palabras comunes y obtener términos únicos
+        stop_words = {'el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'al', 'del', 'los', 'las'}
+        key_terms = [word for word in set(words) if len(word) > 4 and word not in stop_words]
+        return key_terms[:5]
+    
     async def generate_quiz(self, text: str, key_concepts: List[str], num_questions: int = 5, difficulty: str = "medium") -> Dict[str, Any]:
         """
-        Genera un quiz educativo basado en el texto y conceptos clave
+        Genera un quiz usando T5
         """
-        if not self.client:
-            return {
-                "questions": self._generate_fallback_quiz(text, key_concepts, num_questions),
-                "success": False,
-                "error": "OpenAI API key not configured"
-            }
-        
         try:
-            difficulty_settings = {
-                "easy": "preguntas básicas de comprensión",
-                "medium": "preguntas de análisis y aplicación", 
-                "hard": "preguntas de síntesis y evaluación crítica"
-            }
+            questions = []
             
-            concepts_str = ", ".join(key_concepts[:8])
-            
-            prompt = f"""
-            Genera {num_questions} preguntas de múltiple opción ({difficulty_settings.get(difficulty, "medium")}) sobre el siguiente contenido educativo:
-
-            CONCEPTOS CLAVE: {concepts_str}
-
-            TEXTO DE REFERENCIA:
-            {text[:3000]}
-
-            FORMATO REQUERIDO (JSON):
-            {{
-                "questions": [
-                    {{
-                        "id": 1,
-                        "question": "Pregunta aquí",
-                        "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
-                        "correct_answer": 0,
-                        "explanation": "Explicación pedagógica de por qué esta es la respuesta correcta",
-                        "difficulty": "{difficulty}"
-                    }}
-                ]
-            }}
-
-            REGLAS:
-            1. 4 opciones por pregunta
-            2. Solo UNA respuesta correcta por pregunta
-            3. Explicaciones pedagógicas claras
-            4. Preguntas educativas, no triviales
-            5. Dificultad progresiva
-            6. En español
-            7. Responde SOLO con JSON válido
-            """
-
-            response = self.client.chat.completions.create(  # ← CAMBIO AQUÍ
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Eres un experto en evaluación educativa. Genera solo JSON válido."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=1500,
-                temperature=0.8
-            )
-            
-            quiz_content = response.choices[0].message.content.strip()
-            
-            # Limpiar posible texto extra
-            if "```json" in quiz_content:
-                quiz_content = quiz_content.split("```json")[1].split("```")[0]
-            elif "```" in quiz_content:
-                quiz_content = quiz_content.split("```")[1].split("```")[0]
-            
-            quiz_data = json.loads(quiz_content)
+            for i in range(num_questions):
+                question_data = await self._generate_single_question(text, key_concepts, i+1, difficulty)
+                if question_data:
+                    questions.append(question_data)
             
             return {
-                "questions": quiz_data["questions"],
+                "questions": questions,
                 "success": True
             }
             
@@ -162,44 +150,130 @@ class AIService:
                 "error": str(e)
             }
     
+    async def _generate_single_question(self, text: str, concepts: List[str], question_num: int, difficulty: str) -> Optional[Dict]:
+        """Genera una pregunta individual usando T5"""
+        try:
+            # Tomar una sección del texto para la pregunta
+            sentences = text.split('.')
+            if len(sentences) > question_num:
+                context = '. '.join(sentences[question_num-1:question_num+1])
+            else:
+                context = text[:200]  # Primeros 200 caracteres
+            
+            # Prompt para T5
+            prompt = f"Genera una pregunta de opción múltiple sobre: {context}"
+            
+            # Tokenizar y generar
+            inputs = self.t5_tokenizer.encode(prompt, return_tensors="pt", max_length=512, truncation=True).to(self.device)
+            
+            with torch.no_grad():
+                outputs = self.t5_model.generate(
+                    inputs, 
+                    max_length=200, 
+                    num_return_sequences=1,
+                    temperature=0.7,
+                    do_sample=True
+                )
+            
+            generated_text = self.t5_tokenizer.decode(outputs[0], skip_special_tokens=True)
+            
+            # Crear estructura de pregunta
+            question_data = self._parse_generated_question(generated_text, question_num, difficulty, context, concepts)
+            
+            return question_data
+            
+        except Exception as e:
+            logger.error(f"Error generando pregunta {question_num}: {e}")
+            return self._create_fallback_question(question_num, concepts, difficulty)
+    
+    def _parse_generated_question(self, generated_text: str, question_id: int, difficulty: str, context: str, concepts: List[str]) -> Dict:
+        """Parsea la respuesta generada y crea una pregunta estructurada"""
+        # Si la generación no es buena, crear pregunta basada en conceptos
+        if len(generated_text) < 10:
+            return self._create_fallback_question(question_id, concepts, difficulty)
+        
+        # Usar el texto generado como base para la pregunta
+        question_text = f"Según el contenido analizado, {generated_text}"
+        
+        # Crear opciones basadas en conceptos
+        if concepts and len(concepts) >= 1:
+            correct_concept = concepts[0] if concepts else "concepto clave"
+            options = [
+                correct_concept,
+                "Información incorrecta A",
+                "Información incorrecta B", 
+                "Información incorrecta C"
+            ]
+            
+            # Mezclar opciones
+            import random
+            correct_index = random.randint(0, 3)
+            options[0], options[correct_index] = options[correct_index], options[0]
+            
+            return {
+                "id": question_id,
+                "question": question_text,
+                "options": options,
+                "correct_answer": correct_index,
+                "explanation": f"La respuesta correcta se relaciona con {correct_concept} mencionado en el texto.",
+                "difficulty": difficulty
+            }
+        
+        return self._create_fallback_question(question_id, concepts, difficulty)
+    
+    def _create_fallback_question(self, question_id: int, concepts: List[str], difficulty: str) -> Dict:
+        """Crea una pregunta de respaldo"""
+        if concepts and len(concepts) > 0:
+            concept = concepts[min(question_id-1, len(concepts)-1)]
+        else:
+            concept = "el contenido analizado"
+        
+        return {
+            "id": question_id,
+            "question": f"¿Cuál es el concepto principal relacionado con {concept}?",
+            "options": [
+                concept if concepts else "Concepto principal",
+                "Opción incorrecta 1",
+                "Opción incorrecta 2",
+                "Opción incorrecta 3"
+            ],
+            "correct_answer": 0,
+            "explanation": f"La respuesta correcta es {concept} ya que es uno de los conceptos centrales del texto analizado.",
+            "difficulty": difficulty
+        }
+    
     async def generate_feedback(self, score: int, total: int, incorrect_questions: List[int], concepts: List[str]) -> str:
         """
-        Genera retroalimentación pedagógica personalizada
+        Genera retroalimentación pedagógica usando T5
         """
-        if not self.client:
-            return self._generate_fallback_feedback(score, total)
-        
         try:
             percentage = (score / total) * 100
             
-            prompt = f"""
-            Genera retroalimentación pedagógica constructiva para un estudiante que obtuvo {score} de {total} preguntas correctas ({percentage:.1f}%).
-
-            PREGUNTAS INCORRECTAS: {incorrect_questions if incorrect_questions else "Ninguna"}
-            CONCEPTOS DEL TEMA: {", ".join(concepts[:5])}
-
-            GENERA:
-            1. Felicitación o motivación apropiada
-            2. Análisis constructivo del desempeño
-            3. 2-3 sugerencias específicas de mejora
-            4. Recursos o estrategias de estudio recomendadas
-
-            TONO: Alentador, constructivo y educativo
-            IDIOMA: Español
-            LONGITUD: 100-150 palabras
-            """
-
-            response = self.client.chat.completions.create(  # ← CAMBIO AQUÍ
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Eres un tutor educativo empático y constructivo."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=300,
-                temperature=0.7
-            )
+            # Crear prompt para retroalimentación
+            prompt = f"Genera retroalimentación educativa para un estudiante que obtuvo {score} de {total} preguntas correctas ({percentage:.1f}%). Conceptos: {', '.join(concepts[:3])}"
             
-            return response.choices[0].message.content.strip()
+            inputs = self.t5_tokenizer.encode(prompt, return_tensors="pt", max_length=256, truncation=True).to(self.device)
+            
+            with torch.no_grad():
+                outputs = self.t5_model.generate(
+                    inputs,
+                    max_length=150,
+                    num_return_sequences=1,
+                    temperature=0.7,
+                    do_sample=True
+                )
+            
+            feedback = self.t5_tokenizer.decode(outputs[0], skip_special_tokens=True)
+            
+            # Agregar contexto adicional
+            if percentage >= 80:
+                feedback = f"¡Excelente trabajo! {feedback} Continúa así."
+            elif percentage >= 60:
+                feedback = f"Buen esfuerzo. {feedback} Sigue practicando."
+            else:
+                feedback = f"Te recomiendo repasar el material. {feedback} ¡No te rindas!"
+            
+            return feedback
             
         except Exception as e:
             logger.error(f"Error generando feedback: {e}")
@@ -208,7 +282,7 @@ class AIService:
     def _generate_fallback_summary(self, text: str) -> str:
         """Genera un resumen básico sin IA"""
         sentences = text.split('.')[:3]
-        return f"Resumen generado localmente: {'. '.join(sentences)}."
+        return f"📚 Resumen básico: {'. '.join(sentences)}."
     
     def _generate_fallback_quiz(self, text: str, concepts: List[str], num_questions: int) -> List[Dict]:
         """Genera preguntas básicas sin IA"""

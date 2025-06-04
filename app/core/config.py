@@ -1,4 +1,4 @@
-# app/core/config.py CORREGIDO
+# app/core/config.py - VERSIÓN SIN OPENAI
 import os
 from typing import List
 from pydantic_settings import BaseSettings
@@ -17,12 +17,17 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # OpenAI
-    OPENAI_API_KEY: str = ""
+    # YA NO NECESITAMOS OPENAI_API_KEY
+    # OPENAI_API_KEY: str = ""  # <-- ELIMINAR ESTA LÍNEA
+    
+    # Configuración de modelos de IA
+    AI_MODEL_CACHE_DIR: str = "model_cache"
+    AI_USE_GPU: bool = True  # Usar GPU si está disponible
+    AI_MODEL_SIZE: str = "base"  # base, small, large
     
     # File Upload
     MAX_FILE_SIZE: int = 10485760  # 10MB
-    ALLOWED_EXTENSIONS: str = "pdf,txt,docx"  # ← CAMBIO: str en lugar de List[str]
+    ALLOWED_EXTENSIONS: str = "pdf,txt,docx"
     UPLOAD_FOLDER: str = "uploads"
     TEMP_FOLDER: str = "temp"
     
@@ -39,4 +44,3 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 settings = Settings()
-

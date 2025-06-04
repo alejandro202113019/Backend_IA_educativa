@@ -1,0 +1,97 @@
+{
+  "dependencies": {
+    "torch": {
+      "installed": true,
+      "version": "2.5.1+cu121"
+    },
+    "transformers": {
+      "installed": true,
+      "version": "4.35.2"
+    },
+    "accelerate": {
+      "installed": true,
+      "version": "0.25.0"
+    },
+    "sentence_transformers": {
+      "installed": true,
+      "version": "2.2.2"
+    },
+    "gpu": {
+      "available": true,
+      "name": "NVIDIA GeForce RTX 3050 Laptop GPU"
+    }
+  },
+  "model_cache": {
+    "cache_exists": true,
+    "file_count": 9,
+    "size_mb": 947.5,
+    "path": "C:\\Users\\LaptopAlejo\\Documents\\Uptc\\Inteligencia Artificial\\Backend_IA_educativa\\model_cache"
+  },
+  "model_loading": {
+    "loading_time": 9.382335901260376,
+    "summarizer_loaded": true,
+    "t5_loaded": true,
+    "classifier_loaded": true,
+    "device": "cuda"
+  },
+  "summary_generation": {
+    "ciencias": {
+      "success": true,
+      "time": 1.1975340843200684,
+      "summary_length": 228,
+      "summary_preview": "📚 Resumen Educativo:\n\n🔑 Conceptos clave: durante, ocurre, tierra.\n\nLa fotosíntesis es el proceso bio..."
+    },
+    "historia": {
+      "success": true,
+      "time": 1.3309884071350098,
+      "summary_length": 333,
+      "summary_preview": "📚 Resumen Educativo:\n\n🔑 Conceptos clave: clase, textiles, siglo\n\nThe Revolución Industrial comenzó e..."
+    },
+    "tecnologia": {
+      "success": true,
+      "time": 1.1216895580291748,
+      "summary_length": 326,
+      "summary_preview": "📚 Resumen Educativo:\n\n🔑 Conceptos clave: machine, visión, computadora\n\nLa inteligencia artificial ha..."
+    }
+  },
+  "quiz_generation": {
+    "ciencias": {
+      "success": true,
+      "time": 4.764716863632202,
+      "question_count": 3,
+      "first_question": "Según el contenido analizado, Genera una pregunta multifácil acerca de: La photosynthesis es el proceso biológico más importante para la vida en la Tierra. Plants utilize the solar energy to convert carbon dioxide and water into glucose and oxygen."
+    },
+    "historia": {
+      "success": true,
+      "time": 4.055126428604126,
+      "question_count": 3,
+      "first_question": "Según el contenido analizado, General question: How did the Industrial Revolution come about in England? Available choices: (1) The Industrial Revolution began in England at the end of the 19th century and transformed society. (2) The invention of the steam boiler by James Watt in 1769 revolutionized transport and production. (3) The invention of vapor machines by James Watt in 1769 revolutionized transport and production."
+    },
+    "tecnologia": {
+      "success": true,
+      "time": 6.043054819107056,
+      "question_count": 3,
+      "first_question": "Según el contenido analizado, Genera una pregunta multiplica: La inteligencia artificial ha evolucionado dramaticamente en las ltimas décadas. Las agoritmos de lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la lnea de la"
+    }
+  },
+  "feedback_generation": {
+    "case_1": {
+      "score": "5/5",
+      "time": 0.3365952968597412,
+      "feedback_length": 84,
+      "feedback_preview": "¡Excelente trabajo! photosynthesis clorofila on a photosynthesis model Continúa así...."
+    },
+    "case_2": {
+      "score": "3/5",
+      "time": 0.379413366317749,
+      "feedback_length": 63,
+      "feedback_preview": "Buen esfuerzo. revolución - economa, realism Sigue practicando...."
+    },
+    "case_3": {
+      "score": "1/5",
+      "time": 0.7795653343200684,
+      "feedback_length": 150,
+      "feedback_preview": "Te recomiendo repasar el material. Genera retroalimentación educativa para un estudiante que obtuvo ..."
+    }
+  }
+}

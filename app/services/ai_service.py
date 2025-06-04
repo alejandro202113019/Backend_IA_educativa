@@ -1,7 +1,8 @@
-# app/services/ai_service.py - VERSIÓN MEJORADA PARA QUIZ
+# app/services/ai_service.py - VERSIÓN MEJORADA PARA MEJORES PREGUNTAS
 import json
 import logging
 import random
+import re
 from typing import Dict, Any, List, Optional
 from transformers import (
     AutoTokenizer, AutoModelForSeq2SeqLM, 
@@ -49,7 +50,6 @@ class AIService:
             
         except Exception as e:
             logger.error(f"Error cargando modelos: {e}")
-            # Fallback a modelos más pequeños
             self._init_fallback_models()
     
     def _init_fallback_models(self):
@@ -107,41 +107,68 @@ class AIService:
     def _make_educational(self, summary: str, original_text: str) -> str:
         """Mejora el resumen para hacerlo más educativo"""
         # Agregar contexto educativo
-        intro = "📚 Resumen Educativo:\n\n"
+        intro = "📚 **Resumen Educativo:**\n\n"
         
         # Identificar conceptos clave del texto original
         key_concepts = self._extract_key_terms(original_text)
         
         if key_concepts:
-            intro += f"🔑 Conceptos clave: {', '.join(key_concepts[:3])}\n\n"
+            intro += f"🔑 **Conceptos clave:** {', '.join(key_concepts[:3])}\n\n"
         
         return intro + summary
     
     def _extract_key_terms(self, text: str) -> List[str]:
-        """Extrae términos clave del texto"""
-        # Implementación simple - en producción usar NER
-        words = text.lower().split()
-        # Filtrar palabras comunes y obtener términos únicos
-        stop_words = {'el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'al', 'del', 'los', 'las'}
-        key_terms = [word for word in set(words) if len(word) > 4 and word not in stop_words]
-        return key_terms[:5]
+        """Extrae términos clave del texto de manera más inteligente"""
+        # Limpiar texto
+        clean_text = re.sub(r'[^\w\s]', ' ', text.lower())
+        words = clean_text.split()
+        
+        # Stop words más completas
+        stop_words = {
+            'el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'es', 'se', 'no', 'te', 
+            'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'al', 'del', 'los', 
+            'las', 'una', 'como', 'más', 'pero', 'sus', 'le', 'ya', 'o', 'este', 
+            'si', 'está', 'han', 'ser', 'muy', 'puede', 'tiene', 'entre', 'todo',
+            'también', 'cuando', 'donde', 'cual', 'cada', 'desde', 'sobre', 'hasta'
+        }
+        
+        # Filtrar palabras significativas (mínimo 4 caracteres)
+        significant_words = [
+            word for word in words 
+            if len(word) >= 4 and word not in stop_words
+        ]
+        
+        # Contar frecuencias
+        from collections import Counter
+        word_freq = Counter(significant_words)
+        
+        # Obtener los términos más frecuentes
+        return [word.title() for word, count in word_freq.most_common(10) if count > 1]
     
     async def generate_quiz(self, text: str, key_concepts: List[str], num_questions: int = 5, difficulty: str = "medium") -> Dict[str, Any]:
         """
-        Genera un quiz mejorado basado en conceptos clave
+        Genera un quiz mejorado con preguntas más inteligentes
         """
         try:
             questions = []
             
-            # ✅ GENERAR PREGUNTAS BASADAS EN CONCEPTOS REALES
+            # ✅ EXTRAER FRASES RELEVANTES DEL TEXTO
+            sentences = self._extract_meaningful_sentences(text)
+            processed_concepts = self._process_concepts_for_questions(key_concepts, text)
+            
+            # ✅ GENERAR PREGUNTAS VARIADAS Y DE CALIDAD
             for i in range(num_questions):
-                question_data = await self._generate_improved_question(text, key_concepts, i+1, difficulty)
+                question_data = await self._generate_intelligent_question(
+                    text, sentences, processed_concepts, i+1, difficulty
+                )
                 if question_data:
                     questions.append(question_data)
             
-            # ✅ SI NO HAY SUFICIENTES PREGUNTAS, USAR FALLBACK
+            # ✅ VERIFICAR CALIDAD Y COMPLETAR SI ES NECESARIO
             while len(questions) < num_questions:
-                fallback_question = self._create_fallback_question(len(questions) + 1, key_concepts, difficulty)
+                fallback_question = self._create_enhanced_fallback_question(
+                    len(questions) + 1, processed_concepts, sentences, difficulty
+                )
                 questions.append(fallback_question)
             
             return {
@@ -152,98 +179,192 @@ class AIService:
         except Exception as e:
             logger.error(f"Error generando quiz: {e}")
             return {
-                "questions": self._generate_fallback_quiz(text, key_concepts, num_questions),
+                "questions": self._generate_enhanced_fallback_quiz(text, key_concepts, num_questions),
                 "success": False,
                 "error": str(e)
             }
     
-    async def _generate_improved_question(self, text: str, concepts: List[str], question_num: int, difficulty: str) -> Optional[Dict]:
-        """Genera una pregunta mejorada usando conceptos clave"""
+    def _extract_meaningful_sentences(self, text: str) -> List[Dict]:
+        """Extrae oraciones significativas del texto"""
+        sentences = re.split(r'[.!?]+', text)
+        meaningful_sentences = []
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            # Filtrar oraciones muy cortas o muy largas
+            if 20 <= len(sentence) <= 200 and len(sentence.split()) >= 5:
+                meaningful_sentences.append({
+                    "text": sentence,
+                    "words": len(sentence.split()),
+                    "concepts": self._identify_concepts_in_sentence(sentence)
+                })
+        
+        return meaningful_sentences[:10]  # Máximo 10 oraciones
+    
+    def _identify_concepts_in_sentence(self, sentence: str) -> List[str]:
+        """Identifica conceptos en una oración"""
+        # Buscar patrones de conceptos técnicos
+        patterns = [
+            r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',  # Dos palabras capitalizadas
+            r'\b[a-záéíóúüñ]+ción\b',        # Palabras terminadas en -ción
+            r'\b[a-záéíóúüñ]+dad\b',         # Palabras terminadas en -dad
+            r'\b[a-záéíóúüñ]+ismo\b',        # Palabras terminadas en -ismo
+        ]
+        
+        concepts = []
+        for pattern in patterns:
+            matches = re.findall(pattern, sentence, re.IGNORECASE)
+            concepts.extend(matches)
+        
+        return list(set(concepts))[:3]  # Máximo 3 conceptos por oración
+    
+    def _process_concepts_for_questions(self, key_concepts: List[str], text: str) -> List[Dict]:
+        """Procesa conceptos para generar mejores preguntas"""
+        processed = []
+        
+        for concept in key_concepts[:8]:  # Limitar a 8 conceptos principales
+            concept_info = {
+                "name": concept,
+                "context": self._find_concept_context(concept, text),
+                "type": self._classify_concept_type(concept),
+                "related_terms": self._find_related_terms(concept, text)
+            }
+            processed.append(concept_info)
+        
+        return processed
+    
+    def _find_concept_context(self, concept: str, text: str) -> str:
+        """Encuentra el contexto donde aparece un concepto"""
+        sentences = re.split(r'[.!?]+', text)
+        
+        for sentence in sentences:
+            if concept.lower() in sentence.lower():
+                return sentence.strip()
+        
+        return ""
+    
+    def _classify_concept_type(self, concept: str) -> str:
+        """Clasifica el tipo de concepto"""
+        concept_lower = concept.lower()
+        
+        if any(word in concept_lower for word in ['técnica', 'tecnología', 'método', 'algoritmo']):
+            return "technical"
+        elif any(word in concept_lower for word in ['proceso', 'sistema', 'modelo']):
+            return "process"
+        elif any(word in concept_lower for word in ['teoría', 'concepto', 'principio']):
+            return "theoretical"
+        else:
+            return "general"
+    
+    def _find_related_terms(self, concept: str, text: str) -> List[str]:
+        """Encuentra términos relacionados con un concepto"""
+        # Buscar palabras que aparecen cerca del concepto
+        words = text.lower().split()
+        related = []
+        
         try:
-            # ✅ SELECCIONAR CONCEPTO PARA LA PREGUNTA
+            concept_indices = [i for i, word in enumerate(words) if concept.lower() in word]
+            
+            for idx in concept_indices:
+                # Tomar palabras en un rango de ±3 posiciones
+                start = max(0, idx - 3)
+                end = min(len(words), idx + 4)
+                context_words = words[start:end]
+                
+                # Filtrar palabras significativas
+                significant = [
+                    w.title() for w in context_words 
+                    if len(w) > 3 and w not in ['que', 'para', 'con', 'una', 'como']
+                ]
+                related.extend(significant)
+        except:
+            pass
+        
+        # Retornar términos únicos
+        return list(set(related))[:5]
+    
+    async def _generate_intelligent_question(
+        self, text: str, sentences: List[Dict], concepts: List[Dict], 
+        question_num: int, difficulty: str
+    ) -> Optional[Dict]:
+        """Genera una pregunta inteligente basada en el contexto"""
+        
+        try:
+            # Seleccionar concepto para esta pregunta
             if concepts and len(concepts) > 0:
                 concept_index = (question_num - 1) % len(concepts)
                 main_concept = concepts[concept_index]
             else:
-                main_concept = "inteligencia artificial"
+                return None
             
-            # ✅ ENCONTRAR CONTEXTO RELEVANTE EN EL TEXTO
-            sentences = text.split('.')
-            relevant_sentence = ""
-            
+            # Seleccionar oración relevante
+            relevant_sentence = None
             for sentence in sentences:
-                if main_concept.lower() in sentence.lower():
-                    relevant_sentence = sentence.strip()
+                if main_concept["name"].lower() in sentence["text"].lower():
+                    relevant_sentence = sentence
                     break
             
             if not relevant_sentence and sentences:
-                relevant_sentence = sentences[min(question_num-1, len(sentences)-1)].strip()
+                relevant_sentence = sentences[min(question_num-1, len(sentences)-1)]
             
-            # ✅ GENERAR PREGUNTA ESTRUCTURADA
-            if len(relevant_sentence) > 10:
-                return self._create_structured_question(
-                    main_concept, 
-                    relevant_sentence, 
-                    question_num, 
-                    difficulty,
-                    concepts
-                )
-            else:
-                return self._create_fallback_question(question_num, concepts, difficulty)
-                
+            # Generar pregunta basada en el tipo de concepto
+            return self._create_context_based_question(
+                main_concept, relevant_sentence, question_num, difficulty, concepts
+            )
+            
         except Exception as e:
-            logger.error(f"Error generando pregunta {question_num}: {e}")
-            return self._create_fallback_question(question_num, concepts, difficulty)
+            logger.error(f"Error generando pregunta inteligente {question_num}: {e}")
+            return None
     
-    def _create_structured_question(self, main_concept: str, context: str, question_id: int, difficulty: str, all_concepts: List[str]) -> Dict:
-        """Crea una pregunta estructurada de alta calidad"""
+    def _create_context_based_question(
+        self, concept: Dict, sentence: Dict, question_id: int, 
+        difficulty: str, all_concepts: List[Dict]
+    ) -> Dict:
+        """Crea una pregunta basada en contexto real"""
         
-        # ✅ TIPOS DE PREGUNTAS VARIADAS
-        question_types = [
-            "¿Qué es {concept}?",
-            "¿Cuál es la principal característica de {concept}?", 
-            "¿Cómo se relaciona {concept} con el contenido analizado?",
-            "Según el texto, ¿qué papel juega {concept}?",
-            "¿Cuál es la importancia de {concept} en este contexto?"
-        ]
+        concept_name = concept["name"]
+        concept_type = concept.get("type", "general")
+        context = concept.get("context", "")
         
-        question_template = question_types[(question_id - 1) % len(question_types)]
-        question_text = question_template.format(concept=main_concept)
+        # Plantillas de preguntas según el tipo de concepto
+        question_templates = {
+            "technical": [
+                f"¿Cuál es la función principal de {concept_name}?",
+                f"¿Cómo funciona {concept_name} según el texto?",
+                f"¿Qué características tiene {concept_name}?"
+            ],
+            "process": [
+                f"¿Qué pasos involucra {concept_name}?",
+                f"¿Cuál es el objetivo de {concept_name}?",
+                f"¿Qué elementos componen {concept_name}?"
+            ],
+            "theoretical": [
+                f"¿Qué principio subyace en {concept_name}?",
+                f"¿Cómo se define {concept_name} en el contexto del texto?",
+                f"¿Qué importancia tiene {concept_name}?"
+            ],
+            "general": [
+                f"¿Qué es {concept_name} según el texto?",
+                f"¿Por qué es relevante {concept_name}?",
+                f"¿Cómo se relaciona {concept_name} con el tema principal?"
+            ]
+        }
         
-        # ✅ CREAR OPCIONES REALISTAS
-        correct_answer = main_concept.title()
+        # Seleccionar plantilla
+        templates = question_templates.get(concept_type, question_templates["general"])
+        question_text = templates[(question_id - 1) % len(templates)]
         
-        # Generar opciones incorrectas basadas en otros conceptos
-        incorrect_options = []
+        # Crear opciones más inteligentes
+        correct_answer = self._generate_correct_answer(concept, context)
+        incorrect_options = self._generate_intelligent_distractors(concept, all_concepts, context)
         
-        # Usar otros conceptos como distractores
-        for concept in all_concepts:
-            if concept.lower() != main_concept.lower() and len(incorrect_options) < 2:
-                incorrect_options.append(concept.title())
-        
-        # Completar con opciones genéricas si no hay suficientes conceptos
-        generic_options = [
-            "Análisis de datos básico",
-            "Procesamiento manual de información", 
-            "Sistema tradicional de cómputo",
-            "Método convencional de análisis",
-            "Técnica estadística clásica"
-        ]
-        
-        while len(incorrect_options) < 3:
-            for option in generic_options:
-                if option not in incorrect_options and len(incorrect_options) < 3:
-                    incorrect_options.append(option)
-        
-        # Crear lista final de opciones
+        # Combinar opciones
         all_options = [correct_answer] + incorrect_options[:3]
-        
-        # Mezclar opciones
         random.shuffle(all_options)
         correct_index = all_options.index(correct_answer)
         
-        # ✅ EXPLICACIÓN EDUCATIVA
-        explanation = f"La respuesta correcta es '{correct_answer}' porque es un concepto clave mencionado en el texto que se relaciona directamente con el tema analizado."
+        # Generar explicación contextual
+        explanation = self._generate_contextual_explanation(concept, correct_answer, context)
         
         return {
             "id": question_id,
@@ -254,41 +375,115 @@ class AIService:
             "difficulty": difficulty
         }
     
-    def _create_fallback_question(self, question_id: int, concepts: List[str], difficulty: str) -> Dict:
-        """Crea una pregunta de respaldo de alta calidad"""
+    def _generate_correct_answer(self, concept: Dict, context: str) -> str:
+        """Genera una respuesta correcta basada en el contexto"""
+        concept_name = concept["name"]
+        
+        # Si hay contexto, extraer información relevante
+        if context:
+            # Buscar definiciones o descripciones en el contexto
+            context_words = context.split()
+            
+            # Encontrar la posición del concepto en el contexto
+            try:
+                concept_pos = next(i for i, word in enumerate(context_words) 
+                                 if concept_name.lower() in word.lower())
+                
+                # Tomar las palabras que siguen al concepto
+                following_words = context_words[concept_pos:concept_pos+8]
+                answer = " ".join(following_words)
+                
+                # Limpiar la respuesta
+                if len(answer) > 10 and len(answer) < 100:
+                    return answer.capitalize()
+            except:
+                pass
+        
+        # Fallback: usar información del concepto
+        if concept.get("related_terms"):
+            return f"Un {concept['type']} relacionado con {', '.join(concept['related_terms'][:2])}"
+        
+        return f"Concepto central del texto sobre {concept_name}"
+    
+    def _generate_intelligent_distractors(
+        self, main_concept: Dict, all_concepts: List[Dict], context: str
+    ) -> List[str]:
+        """Genera distractores inteligentes"""
+        
+        distractors = []
+        
+        # Usar otros conceptos como distractores
+        for concept in all_concepts:
+            if concept["name"] != main_concept["name"] and len(distractors) < 2:
+                if concept.get("related_terms"):
+                    distractor = f"Proceso relacionado con {concept['name']}"
+                    distractors.append(distractor)
+        
+        # Completar con distractores genéricos pero creíbles
+        generic_distractors = [
+            "Método tradicional de análisis de datos",
+            "Sistema convencional de procesamiento",
+            "Técnica básica de información",
+            "Herramienta estándar de clasificación",
+            "Procedimiento manual de evaluación",
+            "Algoritmo básico de comparación"
+        ]
+        
+        while len(distractors) < 3:
+            for distractor in generic_distractors:
+                if distractor not in distractors and len(distractors) < 3:
+                    distractors.append(distractor)
+        
+        return distractors
+    
+    def _generate_contextual_explanation(self, concept: Dict, correct_answer: str, context: str) -> str:
+        """Genera una explicación contextual"""
+        
+        concept_name = concept["name"]
+        
+        if context:
+            return f"La respuesta correcta se basa en la información del texto: '{context[:100]}...'. {concept_name} es un elemento clave mencionado en este contexto."
+        
+        return f"'{correct_answer}' es la respuesta correcta porque {concept_name} representa un concepto fundamental en el texto analizado y se relaciona directamente con los temas principales discutidos."
+    
+    def _create_enhanced_fallback_question(
+        self, question_id: int, concepts: List[Dict], sentences: List[Dict], difficulty: str
+    ) -> Dict:
+        """Crea una pregunta de respaldo mejorada"""
         
         if concepts and len(concepts) > 0:
             concept_index = (question_id - 1) % len(concepts)
             main_concept = concepts[concept_index]
+            concept_name = main_concept["name"]
         else:
-            main_concept = "el contenido analizado"
+            concept_name = "el tema principal"
         
-        # ✅ PREGUNTAS FALLBACK VARIADAS Y EDUCATIVAS
+        # Preguntas de respaldo más variadas
         fallback_questions = [
-            f"¿Cuál es el concepto principal relacionado con {main_concept}?",
-            f"Según el análisis, ¿qué caracteriza a {main_concept}?",
-            f"¿Cuál es la importancia de {main_concept} en el contexto estudiado?",
-            f"¿Cómo se puede definir {main_concept} según el contenido?",
-            f"¿Qué función cumple {main_concept} en el tema analizado?"
+            f"¿Cuál es la característica más importante de {concept_name}?",
+            f"Según el análisis del texto, ¿cómo se puede definir {concept_name}?",
+            f"¿Qué función cumple {concept_name} en el contexto estudiado?",
+            f"¿Por qué es relevante {concept_name} para el tema tratado?",
+            f"¿Qué aspectos destacan de {concept_name} en el contenido analizado?"
         ]
         
         question_text = fallback_questions[(question_id - 1) % len(fallback_questions)]
         
-        # ✅ OPCIONES REALISTAS BASADAS EN CONCEPTOS
-        if concepts and len(concepts) >= 4:
-            options = concepts[:4]
-            correct_answer = 0  # El primer concepto es correcto
+        # Opciones más elaboradas
+        if len(concepts) >= 4:
+            options = [concept["name"] for concept in concepts[:4]]
+            correct_answer = 0
         else:
-            correct_option = main_concept if main_concept != "el contenido analizado" else "Inteligencia Artificial"
+            correct_option = concept_name if concept_name != "el tema principal" else "Concepto central del texto"
             options = [
                 correct_option,
-                "Procesamiento básico de datos",
-                "Análisis estadístico tradicional", 
-                "Sistema de información convencional"
+                "Método de análisis tradicional",
+                "Sistema de procesamiento básico",
+                "Herramienta de clasificación estándar"
             ]
             correct_answer = 0
         
-        explanation = f"La respuesta correcta se relaciona con {options[correct_answer]} ya que es uno de los conceptos centrales del texto analizado."
+        explanation = f"La respuesta correcta es '{options[correct_answer]}' ya que representa el concepto central identificado en el análisis del texto y se relaciona directamente con los temas principales discutidos."
         
         return {
             "id": question_id,
@@ -306,24 +501,34 @@ class AIService:
         try:
             percentage = (score / total) * 100
             
-            # ✅ FEEDBACK ESTRUCTURADO BASADO EN RENDIMIENTO
+            # ✅ FEEDBACK ESTRUCTURADO Y PERSONALIZADO
             if percentage >= 80:
                 base_feedback = f"¡Excelente trabajo! Has demostrado un sólido dominio de los conceptos clave"
                 if concepts:
-                    base_feedback += f" relacionados con {', '.join(concepts[:2])}"
-                base_feedback += f". Tu puntuación de {score}/{total} ({percentage:.1f}%) indica que tienes una comprensión muy buena del tema."
+                    main_concepts = concepts[:2]
+                    base_feedback += f" relacionados con **{' y '.join(main_concepts)}**"
+                base_feedback += f". Tu puntuación de **{score}/{total} ({percentage:.1f}%)** indica una comprensión muy buena del tema."
+                
+                if concepts:
+                    base_feedback += f"\n\n🎯 **Fortalezas identificadas:** Tienes un buen manejo de conceptos como {', '.join(concepts[:3])}."
                 
             elif percentage >= 60:
-                base_feedback = f"Buen trabajo. Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%)"
+                base_feedback = f"Buen trabajo. Has obtenido **{score} de {total}** respuestas correctas (**{percentage:.1f}%**)"
                 if concepts:
-                    base_feedback += f". Tienes una base sólida en {concepts[0] if concepts else 'los conceptos principales'}"
+                    base_feedback += f". Tienes una base sólida en **{concepts[0]}**"
                 base_feedback += ", pero hay algunas áreas que puedes reforzar para mejorar tu comprensión."
                 
+                if len(concepts) > 1:
+                    base_feedback += f"\n\n📚 **Áreas a reforzar:** Revisa especialmente los conceptos de {', '.join(concepts[1:3])}."
+                
             else:
-                base_feedback = f"Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%)"
+                base_feedback = f"Has obtenido **{score} de {total}** respuestas correctas (**{percentage:.1f}%**)"
                 if concepts:
-                    base_feedback += f". Te recomiendo revisar los conceptos fundamentales como {', '.join(concepts[:2]) if len(concepts) >= 2 else concepts[0] if concepts else 'los temas principales'}"
+                    main_concepts = concepts[:2]
+                    base_feedback += f". Te recomiendo revisar los conceptos fundamentales como **{' y '.join(main_concepts)}**"
                 base_feedback += ". No te desanimes, el aprendizaje es un proceso gradual y cada intento te acerca más al dominio del tema."
+                
+                base_feedback += f"\n\n💪 **Plan de mejora:** Enfócate en comprender los conceptos básicos antes de avanzar a temas más complejos."
             
             return base_feedback
             
@@ -334,13 +539,24 @@ class AIService:
     def _generate_fallback_summary(self, text: str) -> str:
         """Genera un resumen básico sin IA"""
         sentences = text.split('.')[:3]
-        return f"📚 Resumen básico: {'. '.join(sentences)}."
+        key_terms = self._extract_key_terms(text)[:3]
+        
+        summary = f"📚 **Resumen básico:**\n\n"
+        if key_terms:
+            summary += f"🔑 **Conceptos principales:** {', '.join(key_terms)}\n\n"
+        summary += '. '.join(sentences) + "."
+        
+        return summary
     
-    def _generate_fallback_quiz(self, text: str, concepts: List[str], num_questions: int) -> List[Dict]:
-        """Genera preguntas básicas de alta calidad"""
+    def _generate_enhanced_fallback_quiz(self, text: str, concepts: List[str], num_questions: int) -> List[Dict]:
+        """Genera preguntas básicas mejoradas"""
         questions = []
-        for i in range(min(num_questions, max(3, len(concepts) if concepts else 3))):
-            question = self._create_fallback_question(i + 1, concepts, "medium")
+        processed_concepts = self._process_concepts_for_questions(concepts, text)
+        
+        for i in range(min(num_questions, max(3, len(processed_concepts)))):
+            question = self._create_enhanced_fallback_question(
+                i + 1, processed_concepts, [], "medium"
+            )
             questions.append(question)
         return questions
     
@@ -348,8 +564,8 @@ class AIService:
         """Genera feedback básico pero útil"""
         percentage = (score / total) * 100
         if percentage >= 80:
-            return f"¡Excelente trabajo! Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%). Demuestras un sólido dominio del tema."
+            return f"¡Excelente trabajo! Has obtenido **{score} de {total}** respuestas correctas (**{percentage:.1f}%**). Demuestras un sólido dominio del tema."
         elif percentage >= 60:
-            return f"Buen trabajo. Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%). Tienes una base sólida, continúa practicando para mejorar."
+            return f"Buen trabajo. Has obtenido **{score} de {total}** respuestas correctas (**{percentage:.1f}%**). Tienes una base sólida, continúa practicando para mejorar."
         else:
-            return f"Has obtenido {score} de {total} respuestas correctas ({percentage:.1f}%). Te recomiendo revisar el material de estudio y enfocarte en los conceptos principales. ¡El aprendizaje es un proceso, sigue adelante!"
+            return f"Has obtenido **{score} de {total}** respuestas correctas (**{percentage:.1f}%**). Te recomiendo revisar el material de estudio y enfocarte en los conceptos principales. ¡El aprendizaje es un proceso, sigue adelante!"

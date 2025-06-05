@@ -2,23 +2,21 @@
   "dependencies": {
     "torch": {
       "installed": true,
-      "version": "2.5.1+cu121"
+      "version": "2.7.0+cpu"
     },
     "transformers": {
       "installed": true,
-      "version": "4.35.2"
+      "version": "4.29.0"
     },
     "accelerate": {
-      "installed": true,
-      "version": "0.25.0"
+      "installed": false
     },
     "sentence_transformers": {
       "installed": true,
       "version": "2.2.2"
     },
     "gpu": {
-      "available": true,
-      "name": "NVIDIA GeForce RTX 3050 Laptop GPU"
+      "available": false
     }
   },
   "model_cache": {
@@ -28,70 +26,15 @@
     "path": "C:\\Users\\LaptopAlejo\\Documents\\Uptc\\Inteligencia Artificial\\Backend_IA_educativa\\model_cache"
   },
   "model_loading": {
-    "loading_time": 9.969722986221313,
-    "summarizer_loaded": true,
-    "t5_loaded": true,
-    "classifier_loaded": true,
-    "device": "cuda"
+    "error": "Failed to import transformers.pipelines because of the following error (look up to see its traceback):\nmodule 'tensorflow' has no attribute 'data'"
   },
   "summary_generation": {
-    "ciencias": {
-      "success": true,
-      "time": 1.1602575778961182,
-      "summary_length": 233,
-      "summary_preview": "RESUMEN EDUCATIVO:\n\nCONCEPTOS CLAVE: Fotosíntesis, Proceso, Reacciones\n\nLa fotosíntesis es el proces..."
-    },
-    "historia": {
-      "success": true,
-      "time": 1.3051714897155762,
-      "summary_length": 317,
-      "summary_preview": "RESUMEN EDUCATIVO:\n\nCONCEPTOS CLAVE: Revolución\n\nThe Revolución Industrial comenzó en Inglaterra a f..."
-    },
-    "tecnologia": {
-      "success": true,
-      "time": 1.107100486755371,
-      "summary_length": 302,
-      "summary_preview": "RESUMEN EDUCATIVO:\n\nCONCEPTOS CLAVE: Learning\n\nLa inteligencia artificial ha evolucionado dramáticam..."
-    }
+    "error": "Failed to import transformers.pipelines because of the following error (look up to see its traceback):\nmodule 'tensorflow' has no attribute 'data'"
   },
   "quiz_generation": {
-    "ciencias": {
-      "success": true,
-      "time": 0.0010194778442382812,
-      "question_count": 3,
-      "first_question": "¿Qué es La según el texto?"
-    },
-    "historia": {
-      "success": true,
-      "time": 0.0,
-      "question_count": 3,
-      "first_question": "¿Qué es La según el texto?"
-    },
-    "tecnologia": {
-      "success": true,
-      "time": 0.0,
-      "question_count": 3,
-      "first_question": "¿Qué es La según el texto?"
-    }
+    "error": "Failed to import transformers.pipelines because of the following error (look up to see its traceback):\nmodule 'tensorflow' has no attribute 'data'"
   },
   "feedback_generation": {
-    "case_1": {
-      "score": "5/5",
-      "time": 0.0,
-      "feedback_length": 291,
-      "feedback_preview": "¡Excelente trabajo! Has demostrado un sólido dominio de los conceptos clave relacionados con **fotos..."
-    },
-    "case_2": {
-      "score": "3/5",
-      "time": 0.0,
-      "feedback_length": 254,
-      "feedback_preview": "Buen trabajo. Has obtenido **3 de 5** respuestas correctas (**60.0%**). Tienes una base sólida en **..."
-    },
-    "case_3": {
-      "score": "1/5",
-      "time": 0.0,
-      "feedback_length": 349,
-      "feedback_preview": "Has obtenido **1 de 5** respuestas correctas (**20.0%**). Te recomiendo revisar los conceptos fundam..."
-    }
+    "error": "Failed to import transformers.pipelines because of the following error (look up to see its traceback):\nmodule 'tensorflow' has no attribute 'data'"
   }
 }

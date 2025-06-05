@@ -23,12 +23,12 @@
   },
   "model_cache": {
     "cache_exists": true,
-    "file_count": 9,
-    "size_mb": 947.5,
+    "file_count": 0,
+    "size_mb": 0.0,
     "path": "C:\\Users\\LaptopAlejo\\Documents\\Uptc\\Inteligencia Artificial\\Backend_IA_educativa\\model_cache"
   },
   "model_loading": {
-    "loading_time": 10.38021206855774,
+    "loading_time": 9.969722986221313,
     "summarizer_loaded": true,
     "t5_loaded": true,
     "classifier_loaded": true,
@@ -37,61 +37,61 @@
   "summary_generation": {
     "ciencias": {
       "success": true,
-      "time": 3.2464194297790527,
-      "summary_length": 624,
-      "summary_preview": "📚 **Resumen Educativo sobre el tema principal:**\n\n🔑 **Conceptos principales:** La fotosíntesis, es e..."
+      "time": 1.1602575778961182,
+      "summary_length": 233,
+      "summary_preview": "RESUMEN EDUCATIVO:\n\nCONCEPTOS CLAVE: Fotosíntesis, Proceso, Reacciones\n\nLa fotosíntesis es el proces..."
     },
     "historia": {
       "success": true,
-      "time": 1.9658176898956299,
-      "summary_length": 588,
-      "summary_preview": "📚 **Resumen Educativo sobre Economía:**\n\n🔑 **Conceptos principales:** La Revolución, Industrial come..."
+      "time": 1.3051714897155762,
+      "summary_length": 317,
+      "summary_preview": "RESUMEN EDUCATIVO:\n\nCONCEPTOS CLAVE: Revolución\n\nThe Revolución Industrial comenzó en Inglaterra a f..."
     },
     "tecnologia": {
       "success": true,
-      "time": 2.2262203693389893,
-      "summary_length": 673,
-      "summary_preview": "📚 **Resumen Educativo sobre Tecnología:**\n\n🔑 **Conceptos principales:** La inteligencia, artificial ..."
+      "time": 1.107100486755371,
+      "summary_length": 302,
+      "summary_preview": "RESUMEN EDUCATIVO:\n\nCONCEPTOS CLAVE: Learning\n\nLa inteligencia artificial ha evolucionado dramáticam..."
     }
   },
   "quiz_generation": {
     "ciencias": {
       "success": true,
-      "time": 0.0,
+      "time": 0.0010194778442382812,
       "question_count": 3,
-      "first_question": "Según el texto, ¿qué es La?"
+      "first_question": "¿Qué es La según el texto?"
     },
     "historia": {
       "success": true,
       "time": 0.0,
       "question_count": 3,
-      "first_question": "Según el texto, ¿qué es La?"
+      "first_question": "¿Qué es La según el texto?"
     },
     "tecnologia": {
       "success": true,
-      "time": 0.00998234748840332,
+      "time": 0.0,
       "question_count": 3,
-      "first_question": "Según el texto, ¿qué es La?"
+      "first_question": "¿Qué es La según el texto?"
     }
   },
   "feedback_generation": {
     "case_1": {
       "score": "5/5",
       "time": 0.0,
-      "feedback_length": 545,
-      "feedback_preview": "🎉 **¡Excelente trabajo!** Has logrado una puntuación sobresaliente de **5/5 (100.0%)**.\n\n🎯 **Fortale..."
+      "feedback_length": 291,
+      "feedback_preview": "¡Excelente trabajo! Has demostrado un sólido dominio de los conceptos clave relacionados con **fotos..."
     },
     "case_2": {
       "score": "3/5",
       "time": 0.0,
-      "feedback_length": 576,
-      "feedback_preview": "📚 **Resultado aceptable.** Tu puntuación de **3/5 (60.0%)** indica una comprensión básica que puede ..."
+      "feedback_length": 254,
+      "feedback_preview": "Buen trabajo. Has obtenido **3 de 5** respuestas correctas (**60.0%**). Tienes una base sólida en **..."
     },
     "case_3": {
       "score": "1/5",
       "time": 0.0,
-      "feedback_length": 507,
-      "feedback_preview": "💪 **¡No te desanimes!** Con **1/5 (20.0%)** estás en proceso de aprendizaje. Cada intento te acerca ..."
+      "feedback_length": 349,
+      "feedback_preview": "Has obtenido **1 de 5** respuestas correctas (**20.0%**). Te recomiendo revisar los conceptos fundam..."
     }
   }
 }

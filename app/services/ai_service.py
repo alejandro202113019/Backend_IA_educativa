@@ -1,4 +1,4 @@
-# app/services/ai_service.py - CÓDIGO MEJORADO ACTUAL
+# app/services/ai_service.py - VERSIÓN MEJORADA PARA MEJORES PREGUNTAS
 import json
 import logging
 import random
@@ -107,13 +107,13 @@ class AIService:
     def _make_educational(self, summary: str, original_text: str) -> str:
         """Mejora el resumen para hacerlo más educativo"""
         # Agregar contexto educativo
-        intro = "RESUMEN EDUCATIVO:\n\n"
+        intro = "📚 **Resumen Educativo:**\n\n"
         
         # Identificar conceptos clave del texto original
         key_concepts = self._extract_key_terms(original_text)
         
         if key_concepts:
-            intro += f"CONCEPTOS CLAVE: {', '.join(key_concepts[:3])}\n\n"
+            intro += f"🔑 **Conceptos clave:** {', '.join(key_concepts[:3])}\n\n"
         
         return intro + summary
     
@@ -152,11 +152,11 @@ class AIService:
         try:
             questions = []
             
-            # Extraer frases relevantes del texto
+            # ✅ EXTRAER FRASES RELEVANTES DEL TEXTO
             sentences = self._extract_meaningful_sentences(text)
             processed_concepts = self._process_concepts_for_questions(key_concepts, text)
             
-            # Generar preguntas variadas y de calidad
+            # ✅ GENERAR PREGUNTAS VARIADAS Y DE CALIDAD
             for i in range(num_questions):
                 question_data = await self._generate_intelligent_question(
                     text, sentences, processed_concepts, i+1, difficulty
@@ -164,7 +164,7 @@ class AIService:
                 if question_data:
                     questions.append(question_data)
             
-            # Verificar calidad y completar si es necesario
+            # ✅ VERIFICAR CALIDAD Y COMPLETAR SI ES NECESARIO
             while len(questions) < num_questions:
                 fallback_question = self._create_enhanced_fallback_question(
                     len(questions) + 1, processed_concepts, sentences, difficulty
@@ -501,7 +501,7 @@ class AIService:
         try:
             percentage = (score / total) * 100
             
-            # Feedback estructurado y personalizado
+            # ✅ FEEDBACK ESTRUCTURADO Y PERSONALIZADO
             if percentage >= 80:
                 base_feedback = f"¡Excelente trabajo! Has demostrado un sólido dominio de los conceptos clave"
                 if concepts:
@@ -510,7 +510,7 @@ class AIService:
                 base_feedback += f". Tu puntuación de **{score}/{total} ({percentage:.1f}%)** indica una comprensión muy buena del tema."
                 
                 if concepts:
-                    base_feedback += f"\n\nFORTALEZAS IDENTIFICADAS: Tienes un buen manejo de conceptos como {', '.join(concepts[:3])}."
+                    base_feedback += f"\n\n🎯 **Fortalezas identificadas:** Tienes un buen manejo de conceptos como {', '.join(concepts[:3])}."
                 
             elif percentage >= 60:
                 base_feedback = f"Buen trabajo. Has obtenido **{score} de {total}** respuestas correctas (**{percentage:.1f}%**)"
@@ -519,7 +519,7 @@ class AIService:
                 base_feedback += ", pero hay algunas áreas que puedes reforzar para mejorar tu comprensión."
                 
                 if len(concepts) > 1:
-                    base_feedback += f"\n\nÁREAS A REFORZAR: Revisa especialmente los conceptos de {', '.join(concepts[1:3])}."
+                    base_feedback += f"\n\n📚 **Áreas a reforzar:** Revisa especialmente los conceptos de {', '.join(concepts[1:3])}."
                 
             else:
                 base_feedback = f"Has obtenido **{score} de {total}** respuestas correctas (**{percentage:.1f}%**)"
@@ -528,7 +528,7 @@ class AIService:
                     base_feedback += f". Te recomiendo revisar los conceptos fundamentales como **{' y '.join(main_concepts)}**"
                 base_feedback += ". No te desanimes, el aprendizaje es un proceso gradual y cada intento te acerca más al dominio del tema."
                 
-                base_feedback += f"\n\nPLAN DE MEJORA: Enfócate en comprender los conceptos básicos antes de avanzar a temas más complejos."
+                base_feedback += f"\n\n💪 **Plan de mejora:** Enfócate en comprender los conceptos básicos antes de avanzar a temas más complejos."
             
             return base_feedback
             
@@ -541,9 +541,9 @@ class AIService:
         sentences = text.split('.')[:3]
         key_terms = self._extract_key_terms(text)[:3]
         
-        summary = f"RESUMEN BÁSICO:\n\n"
+        summary = f"📚 **Resumen básico:**\n\n"
         if key_terms:
-            summary += f"CONCEPTOS PRINCIPALES: {', '.join(key_terms)}\n\n"
+            summary += f"🔑 **Conceptos principales:** {', '.join(key_terms)}\n\n"
         summary += '. '.join(sentences) + "."
         
         return summary

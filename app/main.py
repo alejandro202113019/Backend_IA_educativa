@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="API para procesamiento de contenido educativo con IA gratuita (BART, T5, RoBERTa)",
+    description="API para procesamiento de contenido educativo con IA mejorada (BART + T5 + RoBERTa + Fine-tuning LoRA)",
     lifespan=lifespan
 )
 
@@ -133,7 +133,7 @@ async def root():
         data={
             "version": settings.VERSION,
             "environment": settings.ENVIRONMENT,
-            "ai_models": "BART (resúmenes), T5 (quiz), RoBERTa (análisis)",
+            "ai_models": "BART + LoRA (resúmenes), T5 + LoRA (quiz/feedback), RoBERTa (análisis)",
             "gpu_available": "cuda" if settings.AI_USE_GPU else "cpu",
             "service_status": status,
             "endpoints": {
@@ -171,7 +171,7 @@ async def health_check():
             "timestamp": datetime.utcnow().isoformat(),
             "environment": settings.ENVIRONMENT,
             "gpu": gpu_status,
-            "models": "BART + T5 + RoBERTa (singleton)",
+            "models": "BART + T5 + RoBERTa + Fine-tuned LoRA (singleton)",
             "services": service_status
         }
     )

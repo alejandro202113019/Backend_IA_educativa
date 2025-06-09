@@ -1,7 +1,8 @@
-# app/services/service_manager.py - ACTUALIZADO CON QUIZ INTELIGENTE
+# app/services/service_manager.py - CORREGIDO PARA USAR GENERADOR SIMPLE
 import logging
-from typing import Optional
-from app.services.enhanced_ai_service_integration import EnhancedAIServiceWithQuiz
+import re
+from typing import Optional, List
+from app.services.simple_ai_service import SimpleAIServiceWithContextualQuiz
 from app.services.nlp_service import UniversalNLPService
 from app.services.quiz_generator import QuizManager
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class ServiceManager:
     """
-    Gestor singleton con generador inteligente de quiz contextual
+    Gestor singleton con generador simple y efectivo de quiz contextual
     """
     _instance: Optional['ServiceManager'] = None
     _initialized: bool = False
@@ -21,8 +22,8 @@ class ServiceManager:
     
     def __init__(self):
         if not self._initialized:
-            logger.info("🚀 Inicializando ServiceManager con Quiz Inteligente Contextual")
-            self._ai_service: Optional[EnhancedAIServiceWithQuiz] = None
+            logger.info("🚀 Inicializando ServiceManager con Quiz Contextual Simple y Efectivo")
+            self._ai_service: Optional[SimpleAIServiceWithContextualQuiz] = None
             self._nlp_service: Optional[UniversalNLPService] = None
             self._quiz_manager: Optional[QuizManager] = None
             ServiceManager._initialized = True
@@ -30,12 +31,12 @@ class ServiceManager:
             logger.debug("ServiceManager ya inicializado")
     
     @property
-    def ai_service(self) -> EnhancedAIServiceWithQuiz:
-        """Obtiene instancia singleton de EnhancedAIServiceWithQuiz"""
+    def ai_service(self) -> SimpleAIServiceWithContextualQuiz:
+        """Obtiene instancia singleton de SimpleAIServiceWithContextualQuiz"""
         if self._ai_service is None:
-            logger.info("🤖 Cargando EnhancedAIServiceWithQuiz con generador inteligente...")
-            self._ai_service = EnhancedAIServiceWithQuiz()
-            logger.info("✅ Servicio de IA mejorado con quiz inteligente cargado")
+            logger.info("🤖 Cargando SimpleAIServiceWithContextualQuiz...")
+            self._ai_service = SimpleAIServiceWithContextualQuiz()
+            logger.info("✅ Servicio de IA simple con quiz contextual cargado")
         return self._ai_service
     
     @property
@@ -57,193 +58,147 @@ class ServiceManager:
         return self._quiz_manager
     
     def preload_all_services(self):
-        """Pre-cargar todos los servicios mejorados con quiz inteligente"""
-        logger.info("⚡ Pre-cargando servicios con generador inteligente de quiz...")
+        """Pre-cargar todos los servicios simples"""
+        logger.info("⚡ Pre-cargando servicios simples con generador contextual...")
         _ = self.ai_service
         _ = self.nlp_service  
         _ = self.quiz_manager
-        logger.info("🎯 Servicios con quiz inteligente pre-cargados exitosamente")
+        logger.info("🎯 Servicios simples con quiz contextual pre-cargados exitosamente")
     
     def get_status(self) -> dict:
-        """Obtiene el estado completo incluyendo el generador inteligente"""
+        """Obtiene el estado completo del sistema simplificado"""
         base_status = {
             "ai_service_loaded": self._ai_service is not None,
             "nlp_service_loaded": self._nlp_service is not None,
             "quiz_manager_loaded": self._quiz_manager is not None,
-            "service_manager_version": "intelligent_quiz_v3.0",
+            "service_manager_version": "simple_contextual_v1.0",
             "features": [
-                "Intelligent contextual quiz generation",
-                "Content-specific question extraction", 
-                "Enhanced fact-based questions",
-                "Multi-method quiz generation",
-                "Contextual answer validation",
-                "Specialized prompts",
-                "Advanced post-processing"
+                "Simple contextual quiz generation",
+                "Direct content extraction", 
+                "Fact-based questions",
+                "WWII specific patterns",
+                "Emergency fallback system",
+                "Text-specific analysis"
             ]
         }
         
-        # Agregar estado detallado del generador inteligente
         if self._ai_service:
-            quiz_generator_status = {
-                "type": "EnhancedAIServiceWithQuiz",
-                "intelligent_quiz_generator": True,
-                "contextual_analysis": True,
-                "content_extraction": True,
-                "multi_method_fallback": True,
-                "spacy_nlp": hasattr(self._ai_service.quiz_generator, 'nlp') and self._ai_service.quiz_generator.nlp is not None,
-                "domain_patterns": len(getattr(self._ai_service.quiz_generator, 'domain_patterns', {})),
-                "question_categories": ["cronologia", "personajes", "geografia", "causas_consecuencias", "conceptos", "contenido_directo"]
-            }
-            
             base_status["ai_service_details"] = {
-                "type": "EnhancedAIServiceWithQuiz",
-                "device": getattr(self._ai_service, 'device', 'unknown'),
-                "models_loaded": True,
-                "quiz_generator": quiz_generator_status
+                "type": "SimpleAIServiceWithContextualQuiz",
+                "contextual_generator": True,
+                "wwii_patterns": True,
+                "fact_extraction": True,
+                "emergency_fallback": True,
+                "supported_domains": ["historia_wwii", "general"]
             }
         
         if self._nlp_service:
             base_status["nlp_service_details"] = {
                 "type": "UniversalNLPService", 
-                "spacy_model": "loaded" if getattr(self._nlp_service, 'nlp', None) else "fallback",
-                "domain_patterns": len(getattr(self._nlp_service, 'domain_patterns', {})),
-                "universal_processing": True
+                "domain_detection": True,
+                "concept_extraction": True
             }
         
         return base_status
     
-    def test_intelligent_quiz_generation(self, test_text: str = None) -> dict:
-        """Prueba la generación inteligente de quiz con texto de ejemplo"""
+    def test_quiz_with_wwii_content(self) -> dict:
+        """
+        Prueba específica con contenido de la Segunda Guerra Mundial
+        """
+        wwii_test_text = """La Segunda Guerra Mundial comenzó el 1 de septiembre de 1939 cuando Alemania Nazi invadió Polonia. 
+        Adolf Hitler había planeado esta invasión como parte de su estrategia para expandir el territorio alemán.
         
-        if not test_text:
-            test_text = """La Segunda Guerra Mundial (1939-1945) fue el conflicto más devastador de la historia humana. 
-            Comenzó con la invasión alemana de Polonia el 1 de septiembre de 1939, cuando Adolf Hitler ordenó el ataque. 
-            Este evento llevó a Francia e Inglaterra a declarar la guerra a Alemania el 3 de septiembre de 1939.
-            
-            La guerra se caracterizó por el uso de la estrategia Blitzkrieg (guerra relámpago) por parte de Alemania, 
-            que combinaba tanques, aviación y tropas móviles para lograr victorias rápidas. 
-            
-            En 1941, la guerra se globalizó con la Operación Barbarroja (invasión de la URSS) y el ataque japonés 
-            a Pearl Harbor que llevó a Estados Unidos al conflicto.
-            
-            El punto de inflexión llegó en 1942-1943 con batallas como Stalingrado y El Alamein, 
-            donde los Aliados comenzaron a tomar la iniciativa.
-            
-            La guerra terminó con la rendición de Alemania el 8 de mayo de 1945 y de Japón el 2 de septiembre de 1945, 
-            tras las bombas atómicas en Hiroshima y Nagasaki."""
+        Francia e Inglaterra declararon la guerra a Alemania el 3 de septiembre de 1939, dando inicio oficial 
+        al conflicto que se convertiría en la guerra más devastadora de la historia.
+        
+        La estrategia militar alemana se basaba en el Blitzkrieg (guerra relámpago), que combinaba el uso 
+        coordinado de tanques, aviación de combate y tropas móviles para lograr victorias rápidas y decisivas.
+        
+        En 1941, la guerra se expandió globalmente cuando Alemania lanzó la Operación Barbarroja contra 
+        la Unión Soviética y Japón atacó la base naval estadounidense de Pearl Harbor.
+        
+        El punto de inflexión del conflicto llegó en 1942-1943 con batallas decisivas como Stalingrado, 
+        donde el ejército alemán sufrió una derrota que marcó el inicio de su retirada."""
         
         try:
-            logger.info("🧪 Probando generación inteligente de quiz...")
+            logger.info("🧪 Probando generador con contenido específico de la Segunda Guerra Mundial...")
             
-            # Extraer conceptos clave
-            concepts = self.nlp_service.extract_key_concepts(test_text, max_concepts=8)
-            concept_names = [c["concept"] for c in concepts]
-            
-            # Generar quiz inteligente
-            quiz_result = self.ai_service.generate_quiz(
-                text=test_text,
-                key_concepts=concept_names,
-                num_questions=5,
-                difficulty="medium"
-            )
-            
-            # Analizar calidad del resultado
-            quality_analysis = self._analyze_quiz_quality(quiz_result, test_text)
+            # Generar quiz usando el servicio
+            quiz_result = self.ai_service.test_quiz_generation(wwii_test_text)
             
             return {
-                "test_successful": quiz_result.get("success", False),
-                "generation_method": quiz_result.get("generation_method", "unknown"),
-                "questions_generated": len(quiz_result.get("questions", [])),
-                "concepts_used": concept_names,
-                "quality_score": quality_analysis["overall_score"],
-                "quality_details": quality_analysis,
-                "sample_questions": [q["question"] for q in quiz_result.get("questions", [])[:2]]
+                "test_name": "WWII Content Test",
+                "test_successful": quiz_result.get("test_successful", False),
+                "questions_generated": quiz_result.get("questions_generated", 0),
+                "sample_questions": quiz_result.get("sample_questions", []),
+                "quality_metrics": quiz_result.get("quality_metrics", {}),
+                "first_question_example": quiz_result.get("first_question_detail", {}),
+                "text_length": len(wwii_test_text),
+                "content_domain": "Segunda Guerra Mundial"
             }
             
         except Exception as e:
-            logger.error(f"Error en prueba de quiz inteligente: {e}")
+            logger.error(f"Error en prueba de WWII: {e}")
             return {
+                "test_name": "WWII Content Test",
                 "test_successful": False,
-                "error": str(e),
-                "generation_method": "error"
+                "error": str(e)
             }
     
-    def _analyze_quiz_quality(self, quiz_result: dict, original_text: str) -> dict:
-        """Analiza la calidad del quiz generado"""
+    def debug_quiz_generation(self, text: str, concepts: List[str] = None) -> dict:
+        """
+        Función de debugging para analizar el proceso de generación
+        """
+        if concepts is None:
+            concepts = []
         
-        questions = quiz_result.get("questions", [])
-        quality_metrics = {
-            "content_specificity": 0,
-            "option_quality": 0,
-            "explanation_quality": 0,
-            "question_variety": 0,
-            "contextual_relevance": 0
+        debug_info = {
+            "input_analysis": {},
+            "generation_steps": [],
+            "final_result": {}
         }
         
-        if not questions:
-            return {"overall_score": 0, "metrics": quality_metrics}
-        
-        # Analizar especificidad del contenido
-        specific_content_score = 0
-        for question in questions:
-            q_text = question.get("question", "").lower()
+        try:
+            # Analizar el input
+            debug_info["input_analysis"] = {
+                "text_length": len(text),
+                "text_preview": text[:200] + "...",
+                "concepts_provided": concepts,
+                "contains_dates": bool(re.findall(r'\b\d{4}\b', text)),
+                "contains_names": bool(re.findall(r'\b[A-Z][a-z]+\b', text))
+            }
             
-            # Buscar elementos específicos del texto
-            if any(word in q_text for word in ["1939", "1945", "hitler", "alemania", "polonia"]):
-                specific_content_score += 1
-            elif any(word in q_text for word in ["segunda guerra", "blitzkrieg", "barbarroja"]):
-                specific_content_score += 0.8
-            elif "texto" not in q_text and "información" not in q_text:
-                specific_content_score += 0.5
-        
-        quality_metrics["content_specificity"] = specific_content_score / len(questions)
-        
-        # Analizar calidad de opciones
-        option_quality_score = 0
-        for question in questions:
-            options = question.get("options", [])
-            if len(options) == 4:
-                # Verificar que las opciones no sean todas genéricas
-                generic_options = sum(1 for opt in options if "información" in opt.lower() or "texto" in opt.lower())
-                option_quality_score += max(0, (4 - generic_options) / 4)
-        
-        quality_metrics["option_quality"] = option_quality_score / len(questions) if questions else 0
-        
-        # Analizar calidad de explicaciones
-        explanation_quality_score = 0
-        for question in questions:
-            explanation = question.get("explanation", "")
-            if len(explanation) > 50 and "texto" in explanation and "específica" in explanation:
-                explanation_quality_score += 1
-            elif len(explanation) > 30:
-                explanation_quality_score += 0.6
-        
-        quality_metrics["explanation_quality"] = explanation_quality_score / len(questions) if questions else 0
-        
-        # Analizar variedad de preguntas
-        categories = set(q.get("category", "unknown") for q in questions)
-        quality_metrics["question_variety"] = min(len(categories) / 3, 1.0)  # Máximo 3 categorías esperadas
-        
-        # Analizar relevancia contextual
-        contextual_score = 0
-        for question in questions:
-            if question.get("source_context") or question.get("source_fact"):
-                contextual_score += 1
-            elif question.get("enhancement_applied"):
-                contextual_score += 0.7
-            elif question.get("generation_method") in ["enhanced_contextual", "intelligent_generation"]:
-                contextual_score += 0.8
-        
-        quality_metrics["contextual_relevance"] = contextual_score / len(questions) if questions else 0
-        
-        # Calcular puntuación general
-        overall_score = sum(quality_metrics.values()) / len(quality_metrics)
-        
-        return {
-            "overall_score": round(overall_score, 2),
-            "metrics": {k: round(v, 2) for k, v in quality_metrics.items()},
-            "quality_level": "Excelente" if overall_score >= 0.8 else "Bueno" if overall_score >= 0.6 else "Básico" if overall_score >= 0.4 else "Necesita mejora"
-        }
+            # Intentar generar quiz y capturar cada paso
+            debug_info["generation_steps"].append("Iniciando generación contextual...")
+            
+            generator = self.ai_service.contextual_quiz_generator
+            content_info = generator._extract_content_information(text)
+            
+            debug_info["generation_steps"].append(f"Dominio detectado: {content_info.get('domain', 'unknown')}")
+            debug_info["generation_steps"].append(f"Fechas encontradas: {content_info.get('fechas', [])}")
+            debug_info["generation_steps"].append(f"Eventos encontrados: {content_info.get('eventos', [])}")
+            debug_info["generation_steps"].append(f"Personajes encontrados: {content_info.get('personajes', [])}")
+            
+            # Generar quiz
+            questions = generator.generate_contextual_quiz(text, 3)  # Solo 3 para debugging
+            
+            debug_info["final_result"] = {
+                "questions_generated": len(questions),
+                "questions_preview": [
+                    {
+                        "question": q.get("question", ""),
+                        "category": q.get("category", "unknown"),
+                        "source": q.get("source", "unknown")
+                    } for q in questions
+                ]
+            }
+            
+            return debug_info
+            
+        except Exception as e:
+            debug_info["error"] = str(e)
+            debug_info["generation_steps"].append(f"Error: {e}")
+            return debug_info
 
-# Instancia global mejorada
+# Instancia global
 service_manager = ServiceManager()
